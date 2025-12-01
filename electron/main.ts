@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, protocol, net } from 'electron';
+import { app, BrowserWindow, ipcMain, protocol, net, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { Readable } from 'stream';
@@ -39,7 +39,11 @@ const createWindow = () => {
       : path.join(__dirname, '../public/icon.ico')
   });
 
-
+  // Handle external links
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
 
   // Set Content Security Policy
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
