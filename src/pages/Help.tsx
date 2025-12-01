@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, Settings, Play, SkipForward, HelpCircle } from 'lucide-react';
+import { ExternalLink, Play, SkipForward } from 'lucide-react';
 
 export const Help: React.FC = () => {
     const scrollToSection = (id: string) => {
