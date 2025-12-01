@@ -11,6 +11,7 @@ export const EpisodeInfo: React.FC<EpisodeInfoProps> = ({ episode }) => {
 
     return (
         <>
+            {/* Artwork & Info Section */}
             <div className="full-player-info">
                 <div className="artwork-large">
                     {episode.image || episode.feedImage ? (
@@ -23,14 +24,13 @@ export const EpisodeInfo: React.FC<EpisodeInfoProps> = ({ episode }) => {
                 <p className="feed-title-large">{episode.feedTitle}</p>
             </div>
 
+            {/* Description */}
             {episode.description && (
                 <div className="description-container">
                     <h3 className="section-header">Description</h3>
                     <div
                         className="description-text"
-                        style={{
-                            maxHeight: descExpanded ? 'none' : '150px'
-                        }}
+                        style={{ maxHeight: descExpanded ? 'none' : '150px' }}
                         dangerouslySetInnerHTML={{ __html: episode.description }}
                     />
                     {episode.description.length > 300 && (

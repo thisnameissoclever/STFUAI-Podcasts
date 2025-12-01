@@ -9,8 +9,8 @@ interface TranscriptViewProps {
 }
 
 export const TranscriptView: React.FC<TranscriptViewProps> = ({ episode }) => {
-    const transcribeEpisode = usePodcastStore(state => state.transcribeEpisode);
-    const seek = usePlayerStore(state => state.seek);
+    const { seek } = usePlayerStore();
+    const { transcribeEpisode } = usePodcastStore();
 
     const formatTime = (seconds: number): string => {
         if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
@@ -24,8 +24,8 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ episode }) => {
     };
 
     return (
-        <div style={{ marginTop: '2rem' }}>
-            <div className="section-header-row">
+        <div style={{ gridColumn: '1', marginTop: '2rem' }}>
+            <div className="header-with-action">
                 <h3 className="section-title">Transcript</h3>
                 {episode.transcript && (
                     <button
@@ -40,21 +40,21 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ episode }) => {
             </div>
             <div className="transcript-container">
                 {episode.transcriptionStatus === 'processing' ? (
-                    <div className="transcript-loading">
+                    <div className="loading-state">
                         <div className="animate-spin" style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
                         <p>Transcribing episode...</p>
                         <p style={{ fontSize: '0.875rem', opacity: 0.7 }}>This may take a moment.</p>
                     </div>
                 ) : episode.transcript ? (
                     episode.transcript.segments.map((segment) => (
-                        <div key={segment.id} className="transcript-row">
+                        <div key={segment.id} className="transcript-segment">
                             <span
                                 onClick={() => seek(segment.start)}
                                 className="transcript-time"
                             >
                                 {formatTime(segment.start)}
                             </span>
-                            <p className="transcript-content">
+                            <p className="transcript-text">
                                 {segment.speaker && (
                                     <span className="speaker-label">
                                         {segment.speaker}
@@ -81,14 +81,14 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ episode }) => {
                         </div>
                     ))
                 ) : (
-                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                    <div className="loading-state">
                         <p style={{ marginBottom: '1rem' }}>No transcript available yet.</p>
                         {episode.transcriptionStatus === 'failed' && (
-                            <p className="transcript-error">Transcription failed.</p>
+                            <p style={{ color: '#ef4444', marginBottom: '1rem' }}>Transcription failed.</p>
                         )}
                         <button
                             onClick={() => transcribeEpisode(episode.id)}
-                            className="retry-btn"
+                            className="mark-played-btn"
                         >
                             {episode.transcriptionStatus === 'failed' ? 'Retry Transcription' : 'Start Transcription'}
                         </button>
