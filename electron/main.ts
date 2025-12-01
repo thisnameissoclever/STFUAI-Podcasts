@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, protocol, net } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 import { spawn } from 'child_process';
 import ffmpegPath from 'ffmpeg-static';
@@ -90,9 +91,9 @@ ipcMain.handle('download-file', async (_, url: string, filename: string) => {
     if (!response.body) throw new Error('No response body');
 
     const fileStream = fs.createWriteStream(filePath);
-    const { Readable } = await import('stream');
-    // @ts-ignore
-    const nodeStream = Readable.fromWeb(response.body);
+
+    // Convert Web ReadableStream to Node Readable
+    const nodeStream = Readable.fromWeb(response.body as import('stream/web').ReadableStream);
 
     // Listen for abort on the controller to destroy the stream
     const abortHandler = () => {
@@ -272,8 +273,6 @@ app.whenReady().then(() => {
       const fileSize = stats.size;
       const range = request.headers.get('Range');
 
-      const { Readable } = await import('stream');
-
       if (range) {
         const parts = range.replace(/bytes=/, "").split("-");
         const start = parseInt(parts[0], 10);
@@ -283,8 +282,8 @@ app.whenReady().then(() => {
         console.log(`[Main] Serving range: ${start}-${end}/${fileSize}`);
 
         const fileStream = fs.createReadStream(filePath, { start, end });
-        // @ts-ignore
-        const webStream = Readable.toWeb(fileStream);
+        // Convert Node Readable to Web ReadableStream
+        const webStream = Readable.toWeb(fileStream) as unknown as ReadableStream;
 
         return new Response(webStream, {
           status: 206,
@@ -298,8 +297,8 @@ app.whenReady().then(() => {
       } else {
         console.log(`[Main] Serving full file: ${fileSize} bytes`);
         const fileStream = fs.createReadStream(filePath);
-        // @ts-ignore
-        const webStream = Readable.toWeb(fileStream);
+        // Convert Node Readable to Web ReadableStream
+        const webStream = Readable.toWeb(fileStream) as unknown as ReadableStream;
 
         return new Response(webStream, {
           status: 200,

@@ -146,5 +146,53 @@ describe('Skippable Segment Detection', () => {
             expect(result[0].endTimeSeconds).toBe(20);
             expect(result[0].type).toBe('advertisement');
         });
+
+        it('should filter out invalid segments where end time is before start time', async () => {
+            const mockResponse = {
+                choices: [{
+                    message: {
+                        content: JSON.stringify([
+                            {
+                                startTime: "0:10",
+                                endTime: "0:20",
+                                confidence: 90,
+                                type: "advertisement",
+                                description: "Valid Ad"
+                            },
+                            {
+                                startTime: "0:30",
+                                endTime: "0:25", // Invalid: End before Start
+                                confidence: 90,
+                                type: "advertisement",
+                                description: "Invalid Ad"
+                            }
+                        ])
+                    }
+                }]
+            };
+
+            (fetch as any).mockResolvedValue({
+                ok: true,
+                json: async () => mockResponse
+            });
+
+            const episode: Episode = {
+                id: 1,
+                title: 'Test Episode',
+                duration: 60,
+                transcript: {
+                    episodeId: 1,
+                    text: 'Full text',
+                    segments: [],
+                    language: 'en',
+                    duration: 60,
+                    createdAt: 0
+                }
+            } as any;
+
+            const result = await detectAdvancedSegments(episode);
+            expect(result).toHaveLength(1);
+            expect(result[0].description).toBe("Valid Ad");
+        });
     });
 });
