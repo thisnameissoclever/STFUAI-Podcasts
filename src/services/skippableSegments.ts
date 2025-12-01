@@ -269,8 +269,22 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
         const data = await response.json();
         const content = data.choices[0].message.content;
 
-        // Parse JSON from content (handle potential markdown code blocks)
-        const jsonStr = content.replace(/```json\n|\n```/g, '').trim();
+        // Robust JSON extraction
+        let jsonStr = content.trim();
+
+        // If content is wrapped in markdown code blocks, extract it
+        const jsonBlockMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonBlockMatch) {
+            jsonStr = jsonBlockMatch[1].trim();
+        } else {
+            // Fallback: try to find the first '[' and last ']'
+            const firstBracket = content.indexOf('[');
+            const lastBracket = content.lastIndexOf(']');
+            if (firstBracket !== -1 && lastBracket !== -1) {
+                jsonStr = content.substring(firstBracket, lastBracket + 1);
+            }
+        }
+
         const rawSegments: AIAdSegment[] = JSON.parse(jsonStr);
 
         // Convert to internal AdSegment format with seconds

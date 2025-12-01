@@ -5,9 +5,9 @@ import { ChevronDown, ListMusic, X } from 'lucide-react';
 import { QueueList } from '../QueueList';
 import { ProgressBar } from './ProgressBar';
 import { PlayerControls } from './PlayerControls';
-import { EpisodeInfo } from './EpisodeInfo';
-import { AdSegments } from './AdSegments';
 import { TranscriptView } from './TranscriptView';
+import { AdSegments } from './AdSegments';
+import { EpisodeInfo } from './EpisodeInfo';
 import './Player.css';
 
 interface FullPlayerProps {
@@ -15,16 +15,11 @@ interface FullPlayerProps {
 }
 
 export const FullPlayer: React.FC<FullPlayerProps> = ({ onClose }) => {
-    // Only subscribe to what we need for the layout/modal state
-    // WARNING: We DO NOT subscribe to currentTime here to avoid re-renders on every second.
-    // Only components that strictly need it (like ProgressBar) should subscribe to it.
-    const playerEpisodeId = usePlayerStore(state => state.currentEpisode?.id);
-    const episodes = usePodcastStore(state => state.episodes);
-
+    const { currentEpisode: playerEpisode } = usePlayerStore();
+    const { episodes } = usePodcastStore();
     const [showQueue, setShowQueue] = useState(false);
 
-    // Derive current episode from ID
-    const currentEpisode = playerEpisodeId ? episodes[playerEpisodeId] : null;
+    const currentEpisode = playerEpisode ? (episodes[playerEpisode.id] || playerEpisode) : null;
 
     if (!currentEpisode) return null;
 
@@ -41,34 +36,25 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({ onClose }) => {
                 </button>
             </div>
 
-            {/* Content */}
-            <div className="full-player-content">
-                <div className="full-player-inner">
+            {/* Content - Using Custom Layout */}
+            <div className="player-content-scroll">
+                <div className="player-container">
 
-                    {/* Artwork & Info Section */}
                     <EpisodeInfo episode={currentEpisode} />
 
                     {/* Controls Wrapper */}
                     <div className="full-player-controls-wrapper">
 
-                        {/* Progress Bar - Subscribes to currentTime internally */}
+                        {/* Progress Bar */}
                         <ProgressBar />
 
-                        {/* Playback Controls */}
-                        <PlayerControls />
+                        <PlayerControls episodeId={currentEpisode.id} />
 
                         {/* Transcript & Ads */}
                         {(currentEpisode.transcript || currentEpisode.isDownloaded) && (
-                            <div className="content-grid">
-                                {/* Skippable Segments */}
-                                <div style={{ gridColumn: '1' }}>
-                                    <AdSegments episode={currentEpisode} />
-                                </div>
-
-                                <div style={{ gridColumn: '1' }}>
-                                    {/* Transcript */}
-                                    <TranscriptView episode={currentEpisode} />
-                                </div>
+                            <div className="transcript-grid">
+                                <AdSegments episode={currentEpisode} />
+                                <TranscriptView episode={currentEpisode} />
                             </div>
                         )}
                     </div>
@@ -80,7 +66,7 @@ export const FullPlayer: React.FC<FullPlayerProps> = ({ onClose }) => {
                 <div className="queue-overlay">
                     <div className="queue-container">
                         <div className="queue-header">
-                            <h3 className="queue-title">Up Next</h3>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Up Next</h3>
                             <button onClick={() => setShowQueue(false)} className="icon-btn">
                                 <X size={24} />
                             </button>

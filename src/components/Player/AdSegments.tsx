@@ -9,8 +9,8 @@ interface AdSegmentsProps {
 }
 
 export const AdSegments: React.FC<AdSegmentsProps> = ({ episode }) => {
+    const { detectAds } = usePodcastStore();
     const [isDetectingAds, setIsDetectingAds] = useState(false);
-    const detectAds = usePodcastStore(state => state.detectAds);
 
     const handleDetectAds = async () => {
         setIsDetectingAds(true);
@@ -23,8 +23,8 @@ export const AdSegments: React.FC<AdSegmentsProps> = ({ episode }) => {
     };
 
     return (
-        <div>
-            <div className="section-header-row">
+        <div style={{ gridColumn: '1' }}>
+            <div className="header-with-action">
                 <h3 className="section-title">Skippable Segments</h3>
                 <button
                     onClick={handleDetectAds}
