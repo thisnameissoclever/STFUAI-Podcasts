@@ -5,6 +5,7 @@ import { Search } from './pages/Search';
 import { PodcastDetail } from './pages/PodcastDetail';
 import Settings from './pages/Settings';
 import { Library } from './pages/Library';
+import { Help } from './pages/Help';
 
 import { AudioController } from './components/Player/AudioController';
 import { usePlayerStore } from './store/usePlayerStore';
@@ -60,6 +61,7 @@ function App() {
           <Route path="podcast/:id" element={<PodcastDetail />} />
           <Route path="subscriptions" element={<Library />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="help" element={<Help />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
