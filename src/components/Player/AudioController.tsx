@@ -218,6 +218,14 @@ export const AudioController: React.FC = () => {
 
     const handleEnded = async () => {
         if (currentEpisode) {
+            // Unload audio source to release file lock and prevent 404 errors
+            // when the file is deleted by markAsPlayed
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.removeAttribute('src'); // Remove attribute entirely
+                audioRef.current.load(); // Force reload to clear buffer
+            }
+
             // Always mark as played
             await markAsPlayed(currentEpisode.id);
 
@@ -234,7 +242,6 @@ export const AudioController: React.FC = () => {
             ref={audioRef}
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleEnded}
-            onLoadedMetadata={handleTimeUpdate}
         />
     );
 };
