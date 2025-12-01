@@ -1,7 +1,7 @@
 import React from 'react';
 import { Play, Pause, SkipForward, SkipBack, Volume2, CheckCircle } from 'lucide-react';
 import { usePlayerStore } from '../../store/usePlayerStore';
-import { db } from '../../services/db';
+
 import './Player.css';
 
 interface PlayerControlsProps {
