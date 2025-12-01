@@ -11,6 +11,7 @@ import { usePlayerStore } from './store/usePlayerStore';
 import { usePodcastStore } from './store/usePodcastStore';
 import { useRef, useEffect } from 'react';
 import { db } from './services/db';
+import { feedService } from './services/feedService';
 
 function App() {
   const loadPlayerState = usePlayerStore(state => state.loadState);
@@ -24,7 +25,7 @@ function App() {
       await usePodcastStore.getState().loadEpisodes();
 
       // Initial feed refresh
-      await usePodcastStore.getState().refreshFeeds();
+      await feedService.refreshFeeds();
       lastRefreshTime.current = Date.now();
     };
     initApp();
@@ -38,7 +39,7 @@ function App() {
 
         if (Date.now() - lastRefreshTime.current >= intervalMs) {
           console.log('Background refresh triggered');
-          await usePodcastStore.getState().refreshFeeds();
+          await feedService.refreshFeeds();
           lastRefreshTime.current = Date.now();
         }
       } catch (error) {

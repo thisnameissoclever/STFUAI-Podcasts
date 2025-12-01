@@ -274,20 +274,28 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
         const rawSegments: AIAdSegment[] = JSON.parse(jsonStr);
 
         // Convert to internal AdSegment format with seconds
-        return rawSegments.map(seg => {
-            const startTimeSeconds = parseTime(seg.startTime);
-            const endTimeSeconds = parseTime(seg.endTime);
+        return rawSegments
+            .map(seg => {
+                const startTimeSeconds = parseTime(seg.startTime);
+                const endTimeSeconds = parseTime(seg.endTime);
 
-            return {
-                startTime: formatTime(startTimeSeconds),
-                endTime: formatTime(endTimeSeconds),
-                startTimeSeconds,
-                endTimeSeconds,
-                confidence: seg.confidence,
-                type: seg.type,
-                description: seg.description
-            };
-        });
+                return {
+                    startTime: formatTime(startTimeSeconds),
+                    endTime: formatTime(endTimeSeconds),
+                    startTimeSeconds,
+                    endTimeSeconds,
+                    confidence: seg.confidence,
+                    type: seg.type,
+                    description: seg.description
+                };
+            })
+            .filter(seg => {
+                if (seg.endTimeSeconds <= seg.startTimeSeconds) {
+                    console.warn(`[AI] Invalid segment detected (End <= Start): ${seg.startTime} - ${seg.endTime}. Ignoring.`);
+                    return false;
+                }
+                return true;
+            });
 
     } catch (error) {
         console.error('[AI] Skippable segment detection failed:', error);
