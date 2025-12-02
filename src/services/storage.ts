@@ -24,6 +24,11 @@ interface ElectronAPI {
         fileCount: number;
         storagePath: string;
     }>;
+    checkForUpdates: (options?: { allowPrerelease: boolean }) => Promise<any>;
+    downloadUpdate: () => Promise<void>;
+    quitAndInstall: () => Promise<void>;
+    getVersion: () => Promise<string>;
+    onUpdateStatus: (callback: (status: any) => void) => () => void;
 }
 
 declare global {

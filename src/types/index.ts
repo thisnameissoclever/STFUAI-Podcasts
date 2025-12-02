@@ -66,14 +66,14 @@ export interface Episode {
     feedId: number;
     feedTitle: string;
     feedLanguage: string;
-    
+
     // Local state
     isPlayed: boolean;
     playbackPosition: number; // in seconds
     localFilePath?: string;
     isDownloaded: boolean;
     inQueue: boolean;
-    
+
     // Transcription
     transcript?: Transcript;
     transcriptionStatus?: 'pending' | 'processing' | 'completed' | 'failed';

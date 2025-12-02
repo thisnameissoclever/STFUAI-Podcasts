@@ -14,14 +14,17 @@
     "build:unpacked": "tsc -b && vite build && npm run build:electron && electron-builder --dir",
     "lint": "eslint .",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "node scripts/release.cjs"
   },
   "dependencies": {
     "axios": "^1.13.2",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.6.2",
     "ffmpeg-static": "^5.3.0",
     "idb-keyval": "^6.2.2",
     "lucide-react": "^0.554.0",
+    "music-metadata": "^11.10.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.6",
@@ -72,6 +75,11 @@
     },
     "asarUnpack": [
       "**/node_modules/ffmpeg-static/**"
-    ]
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "thisnameissoclever",
+      "repo": "STFUAI-Podcasts"
+    }
   }
 }

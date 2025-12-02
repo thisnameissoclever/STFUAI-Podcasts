@@ -121,10 +121,10 @@ export async function detectAdvancedSegments(episode: Episode): Promise<AdSegmen
     const apiKey = prefs.openAiApiKey || import.meta.env.VITE_OPENAI_API_KEY || '';
 
     if (!apiKey) {
-        throw new Error('OpenAI API key is required for advanced ad detection. Please check your settings.');
+        throw new Error('API key is required for advanced ad detection. Please check your settings.');
     }
 
-    const systemPrompt = SKIPPABLE_SEGMENTS_SYSTEM_PROMPT.replaceAll('{{DURATION}}', Math.floor(episode.duration).toString());
+    const systemPrompt = SKIPPABLE_SEGMENTS_SYSTEM_PROMPT.replaceAll('{{DURATION}}', Math.floor(episode.transcript.duration).toString());
 
     const userContent = `
 PODCAST NAME: 
@@ -134,7 +134,7 @@ PODCAST EPISODE TITLE:
 ${episode.title}
 
 PODCAST EPISODE LENGTH (in seconds):
-${episode.duration}
+${episode.transcript.duration}
 
 EPISODE TRANSCRIPT WITH TIME-CODES: 
 ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` (${s.speaker}):` : ''} ${s.text}`).join('\n')}
@@ -148,7 +148,7 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userContent }
             ],
-            verbosity: 'low',
+            verbosity: 'high',
             reasoning_effort: 'none',
             temperature: 0
         };
@@ -207,7 +207,7 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
             };
         });
 
-        return validateAndMitigateSegments(segments, episode.duration);
+        return validateAndMitigateSegments(segments, episode.transcript.duration);
 
     } catch (error) {
         console.error('[AI] Skippable segment detection failed:', error);

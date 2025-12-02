@@ -12,4 +12,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     cancelDownload: (filename: string) => ipcRenderer.invoke('cancel-download', filename),
     restartApp: () => ipcRenderer.invoke('restart-app'),
     getStorageInfo: () => ipcRenderer.invoke('get-storage-info'),
+    checkForUpdates: (options?: { allowPrerelease: boolean }) => ipcRenderer.invoke('check-for-updates', options),
+    downloadUpdate: () => ipcRenderer.invoke('download-update'),
+    quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+    getVersion: () => ipcRenderer.invoke('get-version'),
+    onUpdateStatus: (callback: (status: any) => void) => {
+        const subscription = (_: any, value: any) => callback(value);
+        ipcRenderer.on('update-status', subscription);
+        return () => ipcRenderer.removeListener('update-status', subscription);
+    },
 });

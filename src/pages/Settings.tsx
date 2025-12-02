@@ -8,10 +8,25 @@ export default function Settings() {
     const [preferences, setPreferences] = useState<UserPreferences | null>(null);
     const [storageInfo, setStorageInfo] = useState<any>(null);
     const [saved, setSaved] = useState(false);
+    const [appVersion, setAppVersion] = useState<string>('');
+    const [updateStatus, setUpdateStatus] = useState<any>(null);
+    const [includePrereleases, setIncludePrereleases] = useState(false);
 
     useEffect(() => {
         loadPreferences();
         loadStorageInfo();
+
+        if (window.electronAPI?.getVersion) {
+            window.electronAPI.getVersion().then(setAppVersion);
+        }
+
+        if (window.electronAPI?.onUpdateStatus) {
+            const cleanup = window.electronAPI.onUpdateStatus((status) => {
+                console.log('Update status:', status);
+                setUpdateStatus(status);
+            });
+            return cleanup;
+        }
     }, []);
 
     // Apply theme when preferences change
@@ -58,6 +73,26 @@ export default function Settings() {
                 alert('All user data has been cleared. Please restart the app manually.');
                 window.location.reload();
             }
+        }
+    };
+
+    const checkForUpdates = async () => {
+        if (window.electronAPI?.checkForUpdates) {
+            setUpdateStatus({ status: 'checking' });
+            await window.electronAPI.checkForUpdates({ allowPrerelease: includePrereleases });
+        }
+    };
+
+    const downloadUpdate = async () => {
+        if (window.electronAPI?.downloadUpdate) {
+            setUpdateStatus({ status: 'downloading', progress: { percent: 0 } });
+            await window.electronAPI.downloadUpdate();
+        }
+    };
+
+    const quitAndInstall = async () => {
+        if (window.electronAPI?.quitAndInstall) {
+            await window.electronAPI.quitAndInstall();
         }
     };
 
@@ -260,6 +295,127 @@ export default function Settings() {
                             Required for advanced AI-powered skippable segment detection. If not provided, the app will try to use the built-in API key (for now). This will stop working at some point.
                         </p>
                     </div>
+                </section>
+
+                {/* App Updates */}
+                <section className="settings-section">
+                    <h2>App Updates</h2>
+                    <div className="setting-item">
+                        <label>Current Version</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ fontFamily: 'monospace', backgroundColor: '#2a2a2a', padding: '4px 8px', borderRadius: '4px' }}>
+                                v{appVersion || '...'}
+                            </span>
+                            <button
+                                onClick={checkForUpdates}
+                                disabled={updateStatus?.status === 'checking' || updateStatus?.status === 'downloading'}
+                                style={{
+                                    padding: '6px 12px',
+                                    backgroundColor: '#444',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    opacity: (updateStatus?.status === 'checking' || updateStatus?.status === 'downloading') ? 0.5 : 1
+                                }}
+                            >
+                                {updateStatus?.status === 'checking' ? 'Checking...' : 'Check for Updates'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="setting-item">
+                        <label htmlFor="include-prereleases" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input
+                                id="include-prereleases"
+                                type="checkbox"
+                                checked={includePrereleases}
+                                onChange={(e) => setIncludePrereleases(e.target.checked)}
+                            />
+                            Include beta/pre-releases
+                        </label>
+                        <p className="setting-description">
+                            Check for beta versions and pre-releases in addition to stable updates.
+                        </p>
+                    </div>
+
+                    {updateStatus && (
+                        <div className="update-status-message" style={{ marginTop: '12px', padding: '12px', backgroundColor: '#2a2a2a', borderRadius: '6px' }}>
+                            {updateStatus.status === 'checking' && <p>Checking for updates...</p>}
+
+                            {updateStatus.status === 'available' && (
+                                <div>
+                                    <p style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+                                        New version available: {updateStatus.info?.version}
+                                    </p>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            onClick={downloadUpdate}
+                                            style={{
+                                                padding: '6px 12px',
+                                                backgroundColor: '#4ade80',
+                                                color: '#000',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            Download Update
+                                        </button>
+                                        <button
+                                            onClick={() => setUpdateStatus(null)}
+                                            style={{
+                                                padding: '6px 12px',
+                                                backgroundColor: '#444',
+                                                color: '#fff',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Later
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {updateStatus.status === 'not-available' && <p>You are on the latest version.</p>}
+
+                            {updateStatus.status === 'downloading' && (
+                                <div>
+                                    <p>Downloading update...</p>
+                                    {updateStatus.progress && (
+                                        <div style={{ width: '100%', height: '4px', backgroundColor: '#444', marginTop: '8px', borderRadius: '2px' }}>
+                                            <div style={{ width: `${updateStatus.progress.percent}%`, height: '100%', backgroundColor: '#4ade80', borderRadius: '2px' }} />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {updateStatus.status === 'downloaded' && (
+                                <div>
+                                    <p style={{ color: '#4ade80', fontWeight: 'bold', marginBottom: '8px' }}>Update ready to install!</p>
+                                    <button
+                                        onClick={quitAndInstall}
+                                        style={{
+                                            padding: '8px 16px',
+                                            backgroundColor: '#4ade80',
+                                            color: '#000',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        Restart & Install
+                                    </button>
+                                </div>
+                            )}
+                            {updateStatus.status === 'error' && (
+                                <p style={{ color: '#ef4444' }}>Error: {updateStatus.error}</p>
+                            )}
+                        </div>
+                    )}
                 </section>
 
                 {/* Storage & Data Settings */}
