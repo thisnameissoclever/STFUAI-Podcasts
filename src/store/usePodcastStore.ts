@@ -251,13 +251,18 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
             const transcript = await transcribe(filename, episodeId);
             console.log('Transcription completed:', transcript);
 
+            // Debug: Compare transcript duration vs RSS feed duration
+            console.log(`[Duration Debug] Transcript duration: ${transcript.duration}, RSS feed duration: ${get().episodes[episodeId]?.duration}`);
+
             set((state) => ({
                 episodes: {
                     ...state.episodes,
                     [episodeId]: {
                         ...state.episodes[episodeId],
                         transcript,
-                        transcriptionStatus: 'completed'
+                        transcriptionStatus: 'completed',
+                        // Update episode duration with actual file duration from transcript
+                        duration: transcript.duration || state.episodes[episodeId].duration
                     }
                 }
             }));

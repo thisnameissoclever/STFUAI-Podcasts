@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, protocol, net, shell } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
 import { Readable } from 'stream';
@@ -255,6 +256,66 @@ ipcMain.handle('get-storage-info', async () => {
       storagePath: PODCAST_DIR
     };
   }
+});
+
+// Auto-updater
+autoUpdater.logger = console;
+autoUpdater.autoDownload = false; // Disable auto-download to allow user confirmation
+
+ipcMain.handle('check-for-updates', async (_, { allowPrerelease } = { allowPrerelease: false }) => {
+  console.log(`[AutoUpdater] Checking for updates (allowPrerelease: ${allowPrerelease})...`);
+  autoUpdater.allowPrerelease = allowPrerelease;
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    console.log('[AutoUpdater] Check result:', result?.updateInfo);
+    return result;
+  } catch (error: any) {
+    console.error('[AutoUpdater] Error checking for updates:', error);
+    mainWindow?.webContents.send('update-status', { status: 'error', error: error.message });
+    return null;
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  console.log('[AutoUpdater] User requested download. Starting...');
+  try {
+    await autoUpdater.downloadUpdate();
+  } catch (error: any) {
+    console.error('[AutoUpdater] Error downloading update:', error);
+    mainWindow?.webContents.send('update-status', { status: 'error', error: error.message });
+  }
+});
+
+ipcMain.handle('quit-and-install', () => {
+  autoUpdater.quitAndInstall();
+});
+
+ipcMain.handle('get-version', () => {
+  return app.getVersion();
+});
+
+autoUpdater.on('checking-for-update', () => {
+  mainWindow?.webContents.send('update-status', { status: 'checking' });
+});
+
+autoUpdater.on('update-available', (info) => {
+  mainWindow?.webContents.send('update-status', { status: 'available', info });
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  mainWindow?.webContents.send('update-status', { status: 'not-available', info });
+});
+
+autoUpdater.on('error', (err) => {
+  mainWindow?.webContents.send('update-status', { status: 'error', error: err.message });
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  mainWindow?.webContents.send('update-status', { status: 'downloading', progress: progressObj });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  mainWindow?.webContents.send('update-status', { status: 'downloaded', info });
 });
 
 app.whenReady().then(() => {
