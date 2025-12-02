@@ -8,15 +8,21 @@ const API_ENDPOINT = 'https://api.openai.com/v1/audio/transcriptions';
 /**
  * Transcribe an episode audio file using OpenAI Whisper API
  * Always compresses audio before upload
- * @param filename The downloaded filename (e.g., "12345.mp3")
- * @param episodeId The episode ID
- * @deprecated Whisper transcription is deprecated in favor of AssemblyAI.
+    * @param filename The downloaded filename(e.g., "12345.mp3")
+        * @param episodeId The episode ID
+            * @param apiKeyOverride Optional API key to use instead of env var
  */
 export async function transcribeEpisode(
     filename: string,
-    episodeId: number
+    episodeId: number,
+    apiKeyOverride?: string
 ): Promise<Transcript> {
-    console.warn('[Whisper] This service is deprecated and should not be used. Please use AssemblyAI.');
+    const apiKey = apiKeyOverride || OPENAI_API_KEY;
+
+    if (!apiKey) {
+        throw new Error('OpenAI API key is required for Whisper transcription. Please check your settings.');
+    }
+
     try {
         if (!window.electronAPI) {
             throw new Error('Electron API not available');
@@ -42,7 +48,7 @@ export async function transcribeEpisode(
         const response = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'Authorization': `Bearer ${apiKey}`,
             },
             body: formData,
         });

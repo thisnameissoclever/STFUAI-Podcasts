@@ -43,7 +43,11 @@ function formatTime(seconds: number): string {
  * Detect basic skippable segments using speaker labels (e.g. "Advertiser")
  * This is a fast, free, heuristic-based approach.
  */
-export function detectBasicSegments(transcript: Transcript): AdSegment[] {
+/**
+ * Detect basic skippable segments using speaker labels (e.g. "Advertiser")
+ * This is a fast, free, heuristic-based approach.
+ */
+export function detectBasicSegments(transcript: Transcript, duration: number): AdSegment[] {
     if (!transcript.segments || transcript.segments.length === 0) {
         return [];
     }
@@ -95,12 +99,12 @@ export function detectBasicSegments(transcript: Transcript): AdSegment[] {
                 endTimeSeconds: currentAdEnd,
                 confidence: 100,
                 type: 'advertisement',
-                description: 'Detected via speaker label'
+                description: '(Detected via transcript diarization analysis)'
             });
         }
     }
 
-    return segments;
+    return validateAndMitigateSegments(segments, duration);
 }
 
 /**
@@ -139,7 +143,7 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
     try {
         const payload = {
             //model: 'gpt-4o', //Not great, and costs more... why in the world?
-            model: 'gpt-5.1',
+            model: 'gpt-5.1', //gpt-5.1 is the latest valid model that seems to work well. 
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userContent }
@@ -188,31 +192,126 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
         const rawSegments: AIAdSegment[] = JSON.parse(jsonStr);
 
         // Convert to internal AdSegment format with seconds
-        return rawSegments
-            .map(seg => {
-                const startTimeSeconds = parseTime(seg.startTime);
-                const endTimeSeconds = parseTime(seg.endTime);
+        const segments = rawSegments.map(seg => {
+            const startTimeSeconds = parseTime(seg.startTime);
+            const endTimeSeconds = parseTime(seg.endTime);
 
-                return {
-                    startTime: formatTime(startTimeSeconds),
-                    endTime: formatTime(endTimeSeconds),
-                    startTimeSeconds,
-                    endTimeSeconds,
-                    confidence: seg.confidence,
-                    type: seg.type,
-                    description: seg.description
-                };
-            })
-            .filter(seg => {
-                if (seg.endTimeSeconds <= seg.startTimeSeconds) {
-                    console.warn(`[AI] Invalid segment detected (End <= Start): ${seg.startTime} - ${seg.endTime}. Ignoring.`);
-                    return false;
-                }
-                return true;
-            });
+            return {
+                startTime: formatTime(startTimeSeconds),
+                endTime: formatTime(endTimeSeconds),
+                startTimeSeconds,
+                endTimeSeconds,
+                confidence: seg.confidence,
+                type: seg.type,
+                description: seg.description
+            };
+        });
+
+        return validateAndMitigateSegments(segments, episode.duration);
 
     } catch (error) {
         console.error('[AI] Skippable segment detection failed:', error);
         throw error;
     }
+}
+
+/**
+ * Validates and mitigates issues with skippable segments.
+ * Handles overlaps, invalid times, and short segments.
+ */
+export function validateAndMitigateSegments(segments: AdSegment[], episodeDuration: number): AdSegment[] {
+    // 1. Initial Filter & Sanitization
+    let validSegments = segments.filter(seg => {
+        // Start time > Episode duration
+        if (seg.startTimeSeconds >= episodeDuration) {
+            console.warn(`[Validation] Segment starts after episode end: ${seg.startTime} - ${seg.endTime}. Ignoring.`);
+            return false;
+        }
+        // Start time < 0
+        if (seg.startTimeSeconds < 0) {
+            console.warn(`[Validation] Segment starts before 0: ${seg.startTime} - ${seg.endTime}. Ignoring.`);
+            return false;
+        }
+        // End time <= Start time
+        if (seg.endTimeSeconds <= seg.startTimeSeconds) {
+            console.warn(`[Validation] Invalid segment detected (End <= Start): ${seg.startTime} - ${seg.endTime}. Ignoring.`);
+            return false;
+        }
+        return true;
+    }).map(seg => {
+        // Cap at duration
+        if (seg.endTimeSeconds > episodeDuration) {
+            console.warn(`[Validation] Segment ends after episode end. Capping at duration: ${seg.endTime} -> ${formatTime(episodeDuration)}`);
+            return {
+                ...seg,
+                endTimeSeconds: episodeDuration,
+                endTime: formatTime(episodeDuration)
+            };
+        }
+        return seg;
+    });
+
+    // 2. Filter Short Segments (Pre-overlap check)
+    validSegments = validSegments.filter(seg => {
+        if (seg.endTimeSeconds - seg.startTimeSeconds < 2) {
+            console.info(`[Validation] Segment too short (<2s): ${seg.startTime} - ${seg.endTime}. Ignoring.`);
+            return false;
+        }
+        return true;
+    });
+
+    // 3. Handle Overlaps
+    // Sort by start time to make overlap detection easier
+    validSegments.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
+
+    const mitigatedSegments: AdSegment[] = [];
+
+    for (const current of validSegments) {
+        if (mitigatedSegments.length === 0) {
+            mitigatedSegments.push(current);
+            continue;
+        }
+
+        const previous = mitigatedSegments[mitigatedSegments.length - 1];
+
+        // Check for overlap
+        if (current.startTimeSeconds < previous.endTimeSeconds) {
+            console.warn(`[Validation] Overlap detected: [${previous.startTime}-${previous.endTime}] and [${current.startTime}-${current.endTime}]`);
+
+            // Case A: Nested (Current is inside Previous)
+            if (current.endTimeSeconds <= previous.endTimeSeconds) {
+                console.warn(`[Validation] Segment is entirely contained within previous. Ignoring current.`);
+                continue; // Skip current
+            }
+
+            // Case B: Partial Overlap
+            // Split the difference
+            const midpoint = (current.startTimeSeconds + previous.endTimeSeconds) / 2;
+
+            console.warn(`[Validation] Resolving overlap by splitting at ${formatTime(midpoint)}`);
+
+            // Update previous end time
+            previous.endTimeSeconds = midpoint;
+            previous.endTime = formatTime(midpoint);
+
+            // Update current start time
+            current.startTimeSeconds = midpoint;
+            current.startTime = formatTime(midpoint);
+
+            mitigatedSegments.push(current);
+        } else {
+            // No overlap
+            mitigatedSegments.push(current);
+        }
+    }
+
+    // 4. Final Short Segment Check (Post-overlap mitigation)
+    // Splitting might have created short segments
+    return mitigatedSegments.filter(seg => {
+        if (seg.endTimeSeconds - seg.startTimeSeconds < 2) {
+            console.info(`[Validation] Segment too short after mitigation (<2s): ${seg.startTime} - ${seg.endTime}. Ignoring.`);
+            return false;
+        }
+        return true;
+    });
 }

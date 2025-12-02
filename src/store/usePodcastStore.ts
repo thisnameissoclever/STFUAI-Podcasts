@@ -267,7 +267,26 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
             // Auto-detect basic skippable segments (ads) using speaker labels
             try {
                 const { detectBasicSegments } = await import('../services/skippableSegments');
-                const basicSegments = detectBasicSegments(transcript);
+                // Ensure we have a valid duration for validation.
+                // Priority: 1. Transcript duration (API - most accurate from file), 2. Episode duration (feed), 3. Last segment end time
+                let duration = transcript.duration;
+
+                if (!duration) {
+                    duration = get().episodes[episodeId]?.duration;
+                }
+
+                if (!duration && transcript.segments && transcript.segments.length > 0) {
+                    const lastSegment = transcript.segments[transcript.segments.length - 1];
+                    duration = lastSegment.end;
+                }
+
+                // If still no duration, we can't effectively cap segments, but we should avoid 0 to prevent rejecting all segments.
+                // We'll use a safe fallback that effectively disables the "cap at duration" check if we absolutely cannot determine duration.
+                if (!duration) {
+                    console.warn('Could not determine episode duration for ad detection validation. Validation may be less strict.');
+                    duration = Number.MAX_SAFE_INTEGER;
+                }
+                const basicSegments = detectBasicSegments(transcript, duration);
 
                 if (basicSegments.length > 0) {
                     console.log('Detected basic skippable segments:', basicSegments);

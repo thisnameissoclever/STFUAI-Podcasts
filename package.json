@@ -3,7 +3,7 @@
   "description": "AI-powered podcast player and manager",
   "author": "Tim Woodruff",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
