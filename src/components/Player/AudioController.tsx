@@ -13,15 +13,17 @@ export const AudioController: React.FC = () => {
     const isSkippingRef = useRef(false);
     const lastSavedTimeRef = useRef(0);
     const retryCountRef = useRef(0);
+    const lastStoreUpdateRef = useRef(0);
 
-    const {
-        currentEpisode,
-        isPlaying,
-        playbackRate,
-        playNextInQueue,
-        markAsPlayed,
-        queue
-    } = usePlayerStore();
+    // Use selectors to prevent re-renders on unrelated state changes
+    // (Spoiler: This didn't actually work, but... whatever, I'm leaving it 
+    // because it's probably a better solution anyway.)
+    const currentEpisode = usePlayerStore(state => state.currentEpisode);
+    const isPlaying = usePlayerStore(state => state.isPlaying);
+    const playbackRate = usePlayerStore(state => state.playbackRate);
+    const volume = usePlayerStore(state => state.volume);
+    const lastSeekTime = usePlayerStore(state => state.lastSeekTime);
+    const queue = usePlayerStore(state => state.queue);
 
     const { loading, initialized } = usePodcastStore();
 
@@ -139,9 +141,6 @@ export const AudioController: React.FC = () => {
         }
     }, [isPlaying]);
 
-    // Get volume from store
-    const { volume } = usePlayerStore();
-
     // Sync volume with audio element
     useEffect(() => {
         if (audioRef.current) {
@@ -161,8 +160,12 @@ export const AudioController: React.FC = () => {
     }, [playbackRate]);
 
     // Handle seeking
-    const { lastSeekTime, currentTime } = usePlayerStore();
     useEffect(() => {
+        // We need to access currentTime from the store here, but we don't want to subscribe to it 
+        // in the main component body to avoid re-renders. Which are a performance nightmare, but apparently not the main issue I'm trying to fix by messing with this (I learned after missing with it and don't feel like reverting). 
+        // However, lastSeekTime updates whenever seek() is called, so this effect runs then.
+        const currentTime = usePlayerStore.getState().currentTime;
+
         if (audioRef.current && Math.abs(audioRef.current.currentTime - currentTime) > 0.5) {
             // If user seeks manually, reset skipping state
             isSkippingRef.current = false;
@@ -170,11 +173,13 @@ export const AudioController: React.FC = () => {
         }
     }, [lastSeekTime]);
 
-    const lastStoreUpdateRef = useRef(0);
+    // OPTIMIZATION: Manual event listeners to avoid React synthetic event overhead
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
 
-    const handleTimeUpdate = () => {
-        if (audioRef.current) {
-            const currentTime = audioRef.current.currentTime;
+        const handleTimeUpdate = () => {
+            const currentTime = audio.currentTime;
             const now = Date.now();
 
             // Throttle store updates to once per second to prevent UI lag
@@ -182,16 +187,20 @@ export const AudioController: React.FC = () => {
             if (now - lastStoreUpdateRef.current > 1000) {
                 usePlayerStore.setState({
                     currentTime,
-                    duration: audioRef.current.duration || 0
+                    duration: audio.duration || 0
                 });
                 lastStoreUpdateRef.current = now;
             }
 
             // Auto-skip ads
             // Get fresh episode data from PodcastStore to ensure we have latest ad segments
-            // We need to access the store directly without async import inside the callback
             const podcastStore = usePodcastStore.getState();
-            const freshEpisode = podcastStore.episodes[currentEpisode?.id || 0] || currentEpisode;
+            // We need the ID of the currently playing episode. 
+            // We can get it from the store state directly to avoid closure staleness if this handler persists.
+            const currentEpId = usePlayerStore.getState().currentEpisode?.id;
+            if (!currentEpId) return;
+
+            const freshEpisode = podcastStore.episodes[currentEpId];
 
             if (freshEpisode?.adSegments && freshEpisode.adSegments.length > 0) {
                 const currentAd = freshEpisode.adSegments.find(
@@ -206,7 +215,7 @@ export const AudioController: React.FC = () => {
                         isSkippingRef.current = true;
 
                         // Pause main audio
-                        audioRef.current.pause();
+                        audio.pause();
 
                         // Play skip sound
                         skipAudioRef.current.currentTime = 0;
@@ -214,19 +223,19 @@ export const AudioController: React.FC = () => {
 
                         // When skip sound ends, seek and resume
                         skipAudioRef.current.onended = () => {
-                            if (audioRef.current) {
-                                const duration = audioRef.current.duration;
+                            if (audio) {
+                                const duration = audio.duration;
                                 // Check if the ad ends at or after the episode end (within a small margin)
                                 if (currentAd.endTimeSeconds >= duration - 1) {
                                     console.log('[AudioController] Ad ends at episode end, finishing episode');
-                                    audioRef.current.currentTime = duration;
+                                    audio.currentTime = duration;
                                     isSkippingRef.current = false;
-                                    handleEnded();
+                                    // handleEnded will be triggered by the audio element
                                 } else {
-                                    audioRef.current.currentTime = currentAd.endTimeSeconds;
+                                    audio.currentTime = currentAd.endTimeSeconds;
                                     isSkippingRef.current = false;
-                                    if (isPlaying) {
-                                        audioRef.current.play().catch(e => console.error("Resume failed", e));
+                                    if (usePlayerStore.getState().isPlaying) {
+                                        audio.play().catch(e => console.error("Resume failed", e));
                                     }
                                 }
                             }
@@ -246,35 +255,50 @@ export const AudioController: React.FC = () => {
                     console.error('[AudioController] Failed to save state:', err);
                 });
             }
-        }
-    };
+        };
 
-    const handleEnded = async () => {
-        if (currentEpisode) {
-            // Unload audio source to release file lock and prevent 404 errors
-            // when the file is deleted by markAsPlayed
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.removeAttribute('src'); // Remove attribute entirely
-                audioRef.current.load(); // Force reload to clear buffer
+        const handleEnded = async () => {
+            const currentEpisode = usePlayerStore.getState().currentEpisode;
+            if (currentEpisode) {
+                // Unload audio source to release file lock and prevent 404 errors
+                // when the file is deleted by markAsPlayed
+                if (audio) {
+                    audio.pause();
+                    audio.removeAttribute('src'); // Remove attribute entirely
+                    audio.load(); // Force reload to clear buffer
+                }
+
+                // Always mark as played
+                const { markAsPlayed, playNextInQueue } = usePlayerStore.getState();
+                await markAsPlayed(currentEpisode.id);
+
+                // Check auto-play preference before playing next
+                const prefs = await db.getPreferences();
+                if (prefs.autoPlayNext) {
+                    playNextInQueue();
+                }
             }
+        };
 
-            // Always mark as played
-            await markAsPlayed(currentEpisode.id);
+        audio.addEventListener('timeupdate', handleTimeUpdate);
+        audio.addEventListener('ended', handleEnded);
 
-            // Check auto-play preference before playing next
-            const prefs = await db.getPreferences();
-            if (prefs.autoPlayNext) {
-                playNextInQueue();
-            }
-        }
-    };
+        return () => {
+            audio.removeEventListener('timeupdate', handleTimeUpdate);
+            audio.removeEventListener('ended', handleEnded);
+        };
+    }, []); // Empty dependency array means this effect runs once on mount (and cleanup on unmount)
+    // But wait, audioRef.current might be null initially? 
+    // Actually, refs are stable, but the DOM element might not be attached yet in the very first render pass if it's conditional.
+    // But here <audio> is always rendered.
+    // However, to be safe, we should probably depend on something that signals the audio element is ready, or just rely on React setting the ref before effects run.
+    // React guarantees refs are set before effects run.
+    // Don't mind me; just having a conversation with myself by way of Google in my own code comments. 
 
     return (
         <audio
             ref={audioRef}
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={handleEnded}
+        // No props here, all handled via manual event listeners
         />
     );
 };
