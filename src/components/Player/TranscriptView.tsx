@@ -9,8 +9,9 @@ interface TranscriptViewProps {
 }
 
 export const TranscriptView: React.FC<TranscriptViewProps> = React.memo(({ episode }) => {
-    const { seek } = usePlayerStore();
-    const { transcribeEpisode } = usePodcastStore();
+    // Use selectors to prevent re-renders on unrelated store updates
+    const seek = usePlayerStore(state => state.seek);
+    const transcribeEpisode = usePodcastStore(state => state.transcribeEpisode);
 
     const formatTime = (seconds: number): string => {
         if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';

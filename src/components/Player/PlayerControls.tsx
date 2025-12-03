@@ -9,18 +9,17 @@ interface PlayerControlsProps {
 }
 
 export const PlayerControls: React.FC<PlayerControlsProps> = ({ episodeId }) => {
-    const {
-        isPlaying,
-        pause,
-        resume,
-        skipForward,
-        skipBackward,
-        playbackRate,
-        setPlaybackRate,
-        markAsPlayed,
-        volume,
-        setVolume
-    } = usePlayerStore();
+    // Use selectors to prevent re-renders on currentTime/duration updates
+    const isPlaying = usePlayerStore(state => state.isPlaying);
+    const pause = usePlayerStore(state => state.pause);
+    const resume = usePlayerStore(state => state.resume);
+    const skipForward = usePlayerStore(state => state.skipForward);
+    const skipBackward = usePlayerStore(state => state.skipBackward);
+    const playbackRate = usePlayerStore(state => state.playbackRate);
+    const setPlaybackRate = usePlayerStore(state => state.setPlaybackRate);
+    const markAsPlayed = usePlayerStore(state => state.markAsPlayed);
+    const volume = usePlayerStore(state => state.volume);
+    const setVolume = usePlayerStore(state => state.setVolume);
 
     const togglePlay = () => {
         if (isPlaying) pause();

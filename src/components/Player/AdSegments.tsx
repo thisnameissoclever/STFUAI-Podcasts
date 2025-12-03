@@ -9,7 +9,8 @@ interface AdSegmentsProps {
 }
 
 export const AdSegments: React.FC<AdSegmentsProps> = React.memo(({ episode }) => {
-    const { detectAds } = usePodcastStore();
+    // Use selectors to prevent re-renders on unrelated store updates
+    const detectAds = usePodcastStore(state => state.detectAds);
     const [isDetectingAds, setIsDetectingAds] = useState(false);
 
     const handleDetectAds = async () => {
