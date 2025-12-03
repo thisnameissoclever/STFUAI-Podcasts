@@ -7,35 +7,7 @@ export interface StorageService {
     getFilePath(filename: string): string;
 }
 
-// Define the Electron API exposed via preload
-interface ElectronAPI {
-    downloadFile: (url: string, filename: string) => Promise<string>;
-    cancelDownload: (filename: string) => Promise<void>;
-    deleteFile: (filename: string) => Promise<void>;
-    checkFileExists: (filename: string) => Promise<boolean>;
-    readFile: (filename: string) => Promise<ArrayBuffer>;
-    getFilePath: (filename: string) => Promise<string>;
-    readFileBase64: (filename: string) => Promise<string>;
-    compressAudio: (filename: string, bitrateKbps?: number) => Promise<string>;
-    restartApp: () => Promise<void>;
-    getStorageInfo: () => Promise<{
-        totalSizeBytes: number;
-        totalSizeMB: string;
-        fileCount: number;
-        storagePath: string;
-    }>;
-    checkForUpdates: (options?: { allowPrerelease: boolean }) => Promise<any>;
-    downloadUpdate: () => Promise<void>;
-    quitAndInstall: () => Promise<void>;
-    getVersion: () => Promise<string>;
-    onUpdateStatus: (callback: (status: any) => void) => () => void;
-}
-
-declare global {
-    interface Window {
-        electronAPI?: ElectronAPI;
-    }
-}
+// Electron API is defined in src/types/electron.d.ts
 
 class ElectronStorageService implements StorageService {
     async downloadFile(url: string, filename: string): Promise<string> {

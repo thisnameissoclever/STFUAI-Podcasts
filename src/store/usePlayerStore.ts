@@ -33,6 +33,7 @@ interface PlayerState {
     setVolume: (volume: number) => Promise<void>;
     loadState: () => Promise<void>;
     saveState: () => Promise<void>;
+    setDefaultPlaybackRate: (rate: number) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -378,5 +379,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             playbackRate,
             currentTime
         });
-    }
+    },
+
+    setDefaultPlaybackRate: (rate: number) => set({ defaultPlaybackRate: rate })
 }));

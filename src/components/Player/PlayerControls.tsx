@@ -56,7 +56,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ episodeId }) => 
                         onChange={(e) => setPlaybackRate(Number(e.target.value))}
                         className="speed-select"
                     >
-                        {[0.75, 0.9, 1, 1.1, 1.2, 1.25, 1.3, 1.5, 1.75, 2].map(rate => (
+                        {[0.5, 0.75, 0.9, 1, 1.1, 1.2, 1.25, 1.3, 1.5, 1.75, 2].map(rate => (
                             <option key={rate} value={rate}>{rate}x</option>
                         ))}
                     </select>

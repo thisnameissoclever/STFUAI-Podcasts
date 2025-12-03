@@ -10,7 +10,7 @@ export default function Settings() {
     const [saved, setSaved] = useState(false);
     const [appVersion, setAppVersion] = useState<string>('');
     const [updateStatus, setUpdateStatus] = useState<any>(null);
-    const [includePrereleases, setIncludePrereleases] = useState(false);
+
 
     useEffect(() => {
         loadPreferences();
@@ -67,6 +67,9 @@ export default function Settings() {
     const handleClearData = async () => {
         if (confirm('⚠️ This will delete ALL subscriptions, downloads, queue, playback progress, and settings.\n\nThis action cannot be undone. The app will restart after clearing.\n\nContinue?')) {
             await db.clearAll();
+            if (window.electronAPI?.clearAllData) {
+                await window.electronAPI.clearAllData();
+            }
             if (window.electronAPI?.restartApp) {
                 await window.electronAPI.restartApp();
             } else {
@@ -79,7 +82,7 @@ export default function Settings() {
     const checkForUpdates = async () => {
         if (window.electronAPI?.checkForUpdates) {
             setUpdateStatus({ status: 'checking' });
-            await window.electronAPI.checkForUpdates({ allowPrerelease: includePrereleases });
+            await window.electronAPI.checkForUpdates({ allowPrerelease: preferences?.includePrereleases ?? true });
         }
     };
 
@@ -111,6 +114,7 @@ export default function Settings() {
         // Sync specific settings
         if (key === 'playbackSpeed') {
             usePlayerStore.getState().setPlaybackRate(value as number);
+            usePlayerStore.getState().setDefaultPlaybackRate(value as number);
         }
 
         // Show saved indicator
@@ -173,14 +177,9 @@ export default function Settings() {
                             value={preferences.playbackSpeed || 1.0}
                             onChange={(e) => updatePreference('playbackSpeed', parseFloat(e.target.value))}
                         >
-                            <option value="0.5">0.5x</option>
-                            <option value="0.75">0.75x</option>
-                            <option value="1.0">1.0x</option>
-                            <option value="1.25">1.25x</option>
-                            <option value="1.5">1.5x</option>
-                            <option value="1.75">1.75x</option>
-                            <option value="2.0">2.0x</option>
-                            <option value="2.5">2.5x</option>
+                            {[0.5, 0.75, 0.9, 1, 1.1, 1.2, 1.25, 1.3, 1.5, 1.75, 2, 2.5].map(rate => (
+                                <option key={rate} value={rate}>{rate}x</option>
+                            ))}
                         </select>
                     </div>
 
@@ -329,8 +328,8 @@ export default function Settings() {
                             <input
                                 id="include-prereleases"
                                 type="checkbox"
-                                checked={includePrereleases}
-                                onChange={(e) => setIncludePrereleases(e.target.checked)}
+                                checked={preferences.includePrereleases ?? true}
+                                onChange={(e) => updatePreference('includePrereleases', e.target.checked)}
                             />
                             Include beta/pre-releases
                         </label>
@@ -455,6 +454,21 @@ export default function Settings() {
                             }}
                         >
                             Refresh
+                        </button>
+                        <button
+                            onClick={() => window.electronAPI?.openStorageFolder?.()}
+                            style={{
+                                marginTop: '8px',
+                                marginLeft: '8px',
+                                padding: '4px 12px',
+                                backgroundColor: '#444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Open Folder
                         </button>
                     </div>
                 </section>
