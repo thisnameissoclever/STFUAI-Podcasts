@@ -8,7 +8,7 @@ interface TranscriptViewProps {
     episode: Episode;
 }
 
-export const TranscriptView: React.FC<TranscriptViewProps> = ({ episode }) => {
+export const TranscriptView: React.FC<TranscriptViewProps> = React.memo(({ episode }) => {
     const { seek } = usePlayerStore();
     const { transcribeEpisode } = usePodcastStore();
 
@@ -97,4 +97,4 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ episode }) => {
             </div>
         </div>
     );
-};
+});

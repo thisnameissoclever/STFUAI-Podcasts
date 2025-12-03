@@ -15,7 +15,7 @@ interface FullPlayerProps {
 }
 
 export const FullPlayer: React.FC<FullPlayerProps> = ({ onClose }) => {
-    const { currentEpisode: playerEpisode } = usePlayerStore();
+    const playerEpisode = usePlayerStore(state => state.currentEpisode);
     const { episodes } = usePodcastStore();
     const [showQueue, setShowQueue] = useState(false);
 

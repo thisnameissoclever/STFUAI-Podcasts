@@ -70,6 +70,11 @@ export const AudioController: React.FC = () => {
                         if (savedTime > 0 && savedTime < audio.duration) {
                             audio.currentTime = savedTime;
                         }
+
+                        //Re-apply playback rate since it automatically tries to reset 
+                        // to 1.0 on src change
+                        audio.playbackRate = usePlayerStore.getState().playbackRate;
+
                         audio.removeEventListener('loadedmetadata', handleMetadata);
                         resolve();
                     };
@@ -79,7 +84,7 @@ export const AudioController: React.FC = () => {
                         audio.removeEventListener('loadedmetadata', handleMetadata);
                         audio.removeEventListener('error', handleError);
 
-                        // Retry logic for local files (404s)
+                        // Retry logic for local files 40x errors
                         if (isLocal && retryCountRef.current < 1) {
                             console.log(`[AudioController] Attempting recovery for missing file...`);
                             retryCountRef.current++;

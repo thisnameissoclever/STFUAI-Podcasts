@@ -73,12 +73,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
             // Save current position
             const currentTime = get().currentTime;
-            const updatedCurrent = { ...currentEpisode, playbackPosition: currentTime };
+
+            // Fetch the FULL episode from PodcastStore to ensure we don't overwrite the 
+            // store with a "light" version (missing transcript/ads) from the player state.
+            const { usePodcastStore } = await import('./usePodcastStore');
+            const podcastStore = usePodcastStore.getState();
+            const existingEpisode = podcastStore.episodes[currentEpisode.id];
+
+            // Use existing episode data if available, otherwise fall back to currentEpisode
+            const baseEpisode = existingEpisode || currentEpisode;
+
+            const updatedCurrent = { ...baseEpisode, playbackPosition: currentTime };
 
             // Persist to DB and PodcastStore
             await db.saveEpisode(updatedCurrent);
 
-            const { usePodcastStore } = await import('./usePodcastStore');
             usePodcastStore.setState((state) => ({
                 episodes: { ...state.episodes, [currentEpisode.id]: updatedCurrent }
             }));
