@@ -8,7 +8,7 @@ interface AdSegmentsProps {
     episode: Episode;
 }
 
-export const AdSegments: React.FC<AdSegmentsProps> = ({ episode }) => {
+export const AdSegments: React.FC<AdSegmentsProps> = React.memo(({ episode }) => {
     const { detectAds } = usePodcastStore();
     const [isDetectingAds, setIsDetectingAds] = useState(false);
 
@@ -65,4 +65,4 @@ export const AdSegments: React.FC<AdSegmentsProps> = ({ episode }) => {
             </div>
         </div>
     );
-};
+});
