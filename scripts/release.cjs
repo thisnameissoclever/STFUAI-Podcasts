@@ -3,6 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const packageJson = require('../package.json');
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 const version = packageJson.version;
 const tag = `v${version}`;
 
