@@ -57,9 +57,14 @@ export function detectBasicSegments(transcript: Transcript, duration: number): A
     let currentAdEnd: number | null = null;
 
     for (const segment of transcript.segments) {
-        // Check if speaker is explicitly labeled as "Advertiser"
-        // Note: AssemblyAI returns "Advertiser" (case sensitive usually, but let's be safe)
-        const isAdvertiser = segment.speaker && segment.speaker.toLowerCase() === 'advertiser';
+        // Check if speaker is explicitly labeled as "Advertiser", "Advertisement", "Ad", or "Sponsor"
+        // Note: AssemblyAI returns "Advertiser"
+        const isAdvertiser = segment.speaker && (
+            segment.speaker.toLowerCase() === 'advertiser' ||
+            segment.speaker.toLowerCase() === 'advertisement' ||
+            segment.speaker.toLowerCase() === 'ad' ||
+            segment.speaker.toLowerCase() === 'sponsor'
+        );
 
         if (isAdvertiser) {
             if (currentAdStart === null) {
@@ -80,7 +85,7 @@ export function detectBasicSegments(transcript: Transcript, duration: number): A
                         endTimeSeconds: currentAdEnd,
                         confidence: 100, // High confidence because it's explicit in the transcript
                         type: 'advertisement',
-                        description: 'Detected via speaker label'
+                        description: 'Detected via transcript diarization analysis. Click "Analyze" to perform advanced skippable segment detection.'
                     });
                 }
                 currentAdStart = null;
@@ -99,7 +104,7 @@ export function detectBasicSegments(transcript: Transcript, duration: number): A
                 endTimeSeconds: currentAdEnd,
                 confidence: 100,
                 type: 'advertisement',
-                description: '(Detected via transcript diarization analysis)'
+                description: 'Detected via transcript diarization analysis. Click "Analyze" to perform advanced skippable segment detection.'
             });
         }
     }

@@ -67,7 +67,10 @@ export async function transcribeEpisode(
                         "speaker_type": "role",
                         "known_values": [
                             "Advertiser",
+                            "Advertisement",
+                            "Sponsor",
                             "Host",
+                            "Co-host",
                             "Guest"
                         ]
                     }
@@ -87,7 +90,7 @@ export async function transcribeEpisode(
             const pollResponse = await axios.get(`${BASE_URL}/transcript/${transcriptId}`, { headers });
             result = pollResponse.data;
             status = result.status;
-            console.log(`[AssemblyAI] Status: ${status}`);
+            console.debug(`[AssemblyAI] Status: ${status}`);
         }
 
         if (status === 'error') {
