@@ -14,6 +14,8 @@ import { useRef, useEffect } from 'react';
 import { db } from './services/db';
 import { feedService } from './services/feedService';
 
+import { UpdateToast } from './components/UpdateToast';
+
 function App() {
   const loadPlayerState = usePlayerStore(state => state.loadState);
   const lastRefreshTime = useRef<number>(Date.now());
@@ -54,6 +56,7 @@ function App() {
   return (
     <HashRouter>
       <AudioController />
+      <UpdateToast />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Discover />} />
