@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     compressAudio: (filename: string, bitrateKbps?: number) => ipcRenderer.invoke('compress-audio', filename, bitrateKbps),
     cancelDownload: (filename: string) => ipcRenderer.invoke('cancel-download', filename),
     restartApp: () => ipcRenderer.invoke('restart-app'),
+    clearAllData: () => ipcRenderer.invoke('clear-all-data'),
+    openStorageFolder: () => ipcRenderer.invoke('open-storage-folder'),
     getStorageInfo: () => ipcRenderer.invoke('get-storage-info'),
     checkForUpdates: (options?: { allowPrerelease: boolean }) => ipcRenderer.invoke('check-for-updates', options),
     downloadUpdate: () => ipcRenderer.invoke('download-update'),

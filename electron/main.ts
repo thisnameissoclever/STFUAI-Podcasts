@@ -258,6 +258,25 @@ ipcMain.handle('get-storage-info', async () => {
   }
 });
 
+ipcMain.handle('clear-all-data', async () => {
+  console.log('[Main] Clearing all data...');
+  try {
+    const files = await fs.promises.readdir(PODCAST_DIR);
+    for (const file of files) {
+      await fs.promises.unlink(path.join(PODCAST_DIR, file));
+    }
+    console.log('[Main] All files deleted.');
+    return true;
+  } catch (error) {
+    console.error('[Main] Error clearing data:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('open-storage-folder', async () => {
+  await shell.openPath(PODCAST_DIR);
+});
+
 // Auto-updater
 autoUpdater.logger = console;
 autoUpdater.autoDownload = false; // Disable auto-download to allow user confirmation

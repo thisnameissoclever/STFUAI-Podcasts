@@ -107,6 +107,7 @@ export interface UserPreferences {
     refreshIntervalMinutes: number;
     assemblyAiApiKey?: string;
     openAiApiKey?: string;
+    includePrereleases: boolean;
 }
 export interface UserSession {
     username: string;

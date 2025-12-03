@@ -17,8 +17,25 @@ const DB_KEYS = {
     PLAYER_STATE: 'playerState',
 };
 
+// Default values for settings, used if no value is found in the database or 
+// whenever the user clears all data (e.g. via Settings > Reset button)
+const DEFAULT_PREFERENCES: UserPreferences = {
+    playbackSpeed: 1.0,
+    theme: 'dark',
+    volume: 0.65,
+    transcriptionProvider: 'assemblyai',
+    compressionQuality: 96,
+    autoPlayNext: true,
+    skipForwardSeconds: 30,
+    skipBackwardSeconds: 20,
+    debugLogsEnabled: true, //Set to false for production stable build
+    refreshIntervalMinutes: 5,
+    includePrereleases: true,
+};
+
 // Test IndexedDB availability
-async function initDB(): Promise<void> {
+// Test IndexedDB availability with retry
+async function initDB(retries = 3): Promise<void> {
     if (dbInitialized) return;
 
     try {
@@ -28,7 +45,13 @@ async function initDB(): Promise<void> {
         dbInitialized = true;
         console.log('[DB] IndexedDB initialized successfully');
     } catch (error) {
-        console.error('[DB] IndexedDB initialization failed, using in-memory storage:', error);
+        console.error(`[DB] IndexedDB initialization failed (attempt ${4 - retries}/3):`, error);
+        if (retries > 0) {
+            console.log('[DB] Retrying initialization in 500ms...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return initDB(retries - 1);
+        }
+        console.error('[DB] Giving up on IndexedDB, using in-memory storage.');
         useMemoryFallback = true;
         dbInitialized = true;
     }
@@ -186,18 +209,8 @@ export const db = {
 
     // Preferences
     async getPreferences(): Promise<UserPreferences> {
-        return await safeGet(DB_KEYS.PREFERENCES, {
-            playbackSpeed: 1.0,
-            theme: 'dark',
-            volume: 1.0,
-            transcriptionProvider: 'assemblyai',
-            compressionQuality: 64,
-            autoPlayNext: true,
-            skipForwardSeconds: 30,
-            skipBackwardSeconds: 20,
-            debugLogsEnabled: false,
-            refreshIntervalMinutes: 5,
-        });
+        const stored = await safeGet(DB_KEYS.PREFERENCES, DEFAULT_PREFERENCES);
+        return { ...DEFAULT_PREFERENCES, ...stored };
     },
 
     async savePreferences(prefs: Partial<UserPreferences>): Promise<void> {
@@ -207,18 +220,7 @@ export const db = {
                 ...val,
                 ...prefs,
             }),
-            {
-                playbackSpeed: 1.0,
-                theme: 'dark' as const,
-                volume: 1.0,
-                transcriptionProvider: 'assemblyai' as const,
-                compressionQuality: 64 as const,
-                autoPlayNext: true,
-                skipForwardSeconds: 30,
-                skipBackwardSeconds: 20,
-                debugLogsEnabled: false,
-                refreshIntervalMinutes: 5,
-            }
+            DEFAULT_PREFERENCES
         );
     },
 
@@ -265,10 +267,38 @@ export const db = {
         }
 
         try {
-            const { clear } = await import('idb-keyval');
-            await clear(customStore);
+            // Instead of just clearing the store, delete the entire database
+            // This ensures a completely fresh start and avoids some corruption issues
+            const req = indexedDB.deleteDatabase('podcatcher-db');
+
+            await new Promise<void>((resolve, reject) => {
+                req.onsuccess = () => {
+                    console.log('[DB] Database deleted successfully');
+                    resolve();
+                };
+                req.onerror = () => {
+                    console.error('[DB] Failed to delete database');
+                    reject(req.error);
+                };
+                req.onblocked = () => {
+                    console.warn('[DB] Database deletion blocked');
+                    // Proceed anyway, as we can't force close other tabs/connections easily here
+                    // but usually a reload follows this action
+                    resolve();
+                };
+            });
+
+            // Re-initialize to ensure subsequent calls work (though app usually restarts)
+            dbInitialized = false;
         } catch (error) {
             console.error('[DB] Failed to clear database:', error);
+            // Fallback to clearing the store if delete fails
+            try {
+                const { clear } = await import('idb-keyval');
+                await clear(customStore);
+            } catch (e) {
+                console.error('[DB] Fallback clear failed:', e);
+            }
             memoryStorage = {};
         }
     }
