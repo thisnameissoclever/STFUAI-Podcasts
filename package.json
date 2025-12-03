@@ -1,6 +1,6 @@
 {
   "name": "stfuai-podcasts",
-  "description": "AI-powered podcast player and manager",
+  "description": "Automatic ad-skipping podcast player and manager",
   "author": "Tim Woodruff",
   "private": true,
   "version": "0.2.2",
