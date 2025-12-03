@@ -179,24 +179,23 @@ export const AudioController: React.FC = () => {
         if (!audio) return;
 
         const handleTimeUpdate = () => {
-            const currentTime = audio.currentTime;
             const now = Date.now();
 
-            // Throttle store updates to once per second to prevent UI lag
-            // Ad detection still runs on every tick for precision
-            if (now - lastStoreUpdateRef.current > 1000) {
-                usePlayerStore.setState({
-                    currentTime,
-                    duration: audio.duration || 0
-                });
-                lastStoreUpdateRef.current = now;
-            }
+            // Throttle ENTIRE handler to 200ms (5Hz) to prevent expensive operations
+            // Ad detection at 5Hz is more than sufficient for smooth skipping
+            if (now - lastStoreUpdateRef.current < 200) return;
+
+            const currentTime = audio.currentTime;
+            lastStoreUpdateRef.current = now;
+
+            // Update store
+            usePlayerStore.setState({
+                currentTime,
+                duration: audio.duration || 0
+            });
 
             // Auto-skip ads
-            // Get fresh episode data from PodcastStore to ensure we have latest ad segments
             const podcastStore = usePodcastStore.getState();
-            // We need the ID of the currently playing episode. 
-            // We can get it from the store state directly to avoid closure staleness if this handler persists.
             const currentEpId = usePlayerStore.getState().currentEpisode?.id;
             if (!currentEpId) return;
 
