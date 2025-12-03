@@ -82,6 +82,34 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         // Update queue immediately
         set({ queue: updatedQueue });
 
+        // FIX: Reset played status if re-playing a completed episode
+        // This ensures transcripts can be re-generated and the episode is treated as "active"
+        if (episode.isPlayed || (episode.transcriptionStatus === 'completed' && !episode.transcript)) {
+            console.log(`[PlayerStore] Resetting played status for episode ${episode.id}`);
+
+            const updatedEpisode = {
+                ...episode,
+                isPlayed: false,
+                // If transcript is missing but status says completed, reset status to allow re-transcription
+                transcriptionStatus: (!episode.transcript && episode.transcriptionStatus === 'completed')
+                    ? undefined
+                    : episode.transcriptionStatus
+            };
+
+            // Persist to DB
+            await db.saveEpisode(updatedEpisode);
+
+            // Update PodcastStore
+            const { usePodcastStore } = await import('./usePodcastStore');
+            usePodcastStore.setState((state) => ({
+                episodes: { ...state.episodes, [episode.id]: updatedEpisode }
+            }));
+
+            // Use the updated episode for playback logic
+            // eslint-disable-next-line no-param-reassign
+            episode = updatedEpisode;
+        }
+
         // Enforce Download Before Play
         // We must have the file locally to play it (for ad detection, etc.)
         const { usePodcastStore } = await import('./usePodcastStore');
@@ -161,6 +189,35 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             if (state.queue.find(e => e.id === episode.id)) return state;
             return { queue: [...state.queue, episode] };
         });
+
+        // FIX: Reset played status if adding a completed episode to queue
+        if (episode.isPlayed || (episode.transcriptionStatus === 'completed' && !episode.transcript)) {
+            console.log(`[PlayerStore] Resetting played status for queued episode ${episode.id}`);
+
+            const updatedEpisode = {
+                ...episode,
+                isPlayed: false,
+                transcriptionStatus: (!episode.transcript && episode.transcriptionStatus === 'completed')
+                    ? undefined
+                    : episode.transcriptionStatus
+            };
+
+            await db.saveEpisode(updatedEpisode);
+
+            const { usePodcastStore } = await import('./usePodcastStore');
+            usePodcastStore.setState((state) => ({
+                episodes: { ...state.episodes, [episode.id]: updatedEpisode }
+            }));
+
+            // Update the episode in the queue we just added
+            set((state) => ({
+                queue: state.queue.map(e => e.id === episode.id ? updatedEpisode : e)
+            }));
+
+            // Use updated episode for download check
+            // eslint-disable-next-line no-param-reassign
+            episode = updatedEpisode;
+        }
 
         // Always download when adding to queue (auto-transcription happens in downloadEpisode)
         const { usePodcastStore } = await import('./usePodcastStore');
