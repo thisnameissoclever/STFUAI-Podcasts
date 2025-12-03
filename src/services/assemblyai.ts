@@ -67,7 +67,6 @@ export async function transcribeEpisode(
                         "speaker_type": "role",
                         "known_values": [
                             "Advertiser",
-                            "Advertisement",
                             "Sponsor",
                             "Host",
                             "Co-host",

@@ -153,9 +153,9 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userContent }
             ],
-            verbosity: 'high',
+            verbosity: 'medium',
             reasoning_effort: 'none',
-            temperature: 0
+            temperature: 0.1
         };
 
         console.log('[AI] Detecting skippable segments with payload:');
