@@ -170,16 +170,25 @@ export const AudioController: React.FC = () => {
         }
     }, [lastSeekTime]);
 
+    const lastStoreUpdateRef = useRef(0);
+
     const handleTimeUpdate = () => {
         if (audioRef.current) {
             const currentTime = audioRef.current.currentTime;
-            usePlayerStore.setState({
-                currentTime,
-                duration: audioRef.current.duration || 0
-            });
+            const now = Date.now();
+
+            // Throttle store updates to once per second to prevent UI lag
+            // Ad detection still runs on every tick for precision
+            if (now - lastStoreUpdateRef.current > 1000) {
+                usePlayerStore.setState({
+                    currentTime,
+                    duration: audioRef.current.duration || 0
+                });
+                lastStoreUpdateRef.current = now;
+            }
 
             // Auto-skip ads
-            // CRITICAL: Get fresh episode data from PodcastStore to ensure we have latest ad segments
+            // Get fresh episode data from PodcastStore to ensure we have latest ad segments
             // We need to access the store directly without async import inside the callback
             const podcastStore = usePodcastStore.getState();
             const freshEpisode = podcastStore.episodes[currentEpisode?.id || 0] || currentEpisode;
@@ -230,9 +239,9 @@ export const AudioController: React.FC = () => {
             }
 
             // Save state every 5 seconds (throttled)
-            const now = Date.now();
-            if (now - lastSavedTimeRef.current > 5000) {
-                lastSavedTimeRef.current = now;
+            const timeNow = Date.now();
+            if (timeNow - lastSavedTimeRef.current > 5000) {
+                lastSavedTimeRef.current = timeNow;
                 usePlayerStore.getState().saveState().catch(err => {
                     console.error('[AudioController] Failed to save state:', err);
                 });
