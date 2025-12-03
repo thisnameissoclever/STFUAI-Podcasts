@@ -55,8 +55,8 @@ const createWindow = () => {
           "default-src 'self'; " +
           "script-src 'self' 'unsafe-inline'; " +
           "style-src 'self' 'unsafe-inline'; " +
-          "img-src 'self' data: http: https:; " +
-          "media-src 'self' http: https: blob:; " +
+          "img-src 'self' data: http: https: local-media:; " +
+          "media-src 'self' http: https: blob: local-media:; " +
           "connect-src 'self' https://api.podcastindex.org https://api.openai.com https://speech.googleapis.com https://api.assemblyai.com https://*.assemblyai.com; " +
           "font-src 'self' data:;"
         ]

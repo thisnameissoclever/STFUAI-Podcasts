@@ -34,6 +34,10 @@ interface PlayerState {
     loadState: () => Promise<void>;
     saveState: () => Promise<void>;
     setDefaultPlaybackRate: (rate: number) => void;
+
+    // Error handling
+    playbackError: boolean;
+    setPlaybackError: (error: boolean) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -47,6 +51,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     isPlayerOpen: false,
     volume: 1.0,
     lastSeekTime: 0,
+    playbackError: false,
 
     play: async (episode: Episode) => {
         const { currentEpisode, queue } = get();
@@ -54,6 +59,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         // If already playing this episode, just resume
         if (currentEpisode?.id === episode.id) {
             get().resume();
+            set({ playbackError: false });
             return;
         }
 
@@ -168,7 +174,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         const startTime = episodeToPlay.playbackPosition || 0;
         console.log(`[PlayerStore] Starting playback at ${startTime}s`);
 
-        set({ currentEpisode: episodeToPlay, isPlaying: true, playbackRate: defaultRate, currentTime: startTime });
+        set({ currentEpisode: episodeToPlay, isPlaying: true, playbackRate: defaultRate, currentTime: startTime, playbackError: false });
     },
 
     pause: () => set({ isPlaying: false }),
@@ -381,5 +387,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         });
     },
 
-    setDefaultPlaybackRate: (rate: number) => set({ defaultPlaybackRate: rate })
+    setDefaultPlaybackRate: (rate: number) => set({ defaultPlaybackRate: rate }),
+
+    setPlaybackError: (error: boolean) => set({ playbackError: error })
 }));

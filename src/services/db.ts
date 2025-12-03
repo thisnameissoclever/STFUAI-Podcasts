@@ -46,11 +46,13 @@ async function initDB(retries = 3): Promise<void> {
         console.log('[DB] IndexedDB initialized successfully');
     } catch (error) {
         console.error(`[DB] IndexedDB initialization failed (attempt ${4 - retries}/3):`, error);
+
         if (retries > 0) {
             console.log('[DB] Retrying initialization in 500ms...');
             await new Promise(resolve => setTimeout(resolve, 500));
             return initDB(retries - 1);
         }
+
         console.error('[DB] Giving up on IndexedDB, using in-memory storage.');
         useMemoryFallback = true;
         dbInitialized = true;

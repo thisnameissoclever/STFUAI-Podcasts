@@ -12,6 +12,7 @@ export const AudioController: React.FC = () => {
     const skipAudioRef = useRef<HTMLAudioElement>(skipAudio);
     const isSkippingRef = useRef(false);
     const lastSavedTimeRef = useRef(0);
+    const retryCountRef = useRef(0);
 
     const {
         currentEpisode,
@@ -41,23 +42,23 @@ export const AudioController: React.FC = () => {
             let isLocal = false;
 
             if (currentEpisode.isDownloaded && currentEpisode.localFilePath) {
-                // Use custom protocol for local files
-                // We use the ID-based filename convention
                 src = `local-media://${currentEpisode.id}.mp3`;
                 isLocal = true;
             }
 
             console.log(`[AudioController] Loading source: ${isLocal ? 'LOCAL' : 'STREAM'} -> ${src}`);
 
-            // Check if source is actually different (audio.src returns full URL)
+            // Check if source is actually different
             const needsReload = !audio.src || !audio.src.includes(src);
 
             if (needsReload) {
                 console.log(`[AudioController] Source changed, loading new source`);
 
-                // Get the saved playback position from store
-                const savedTime = usePlayerStore.getState().currentTime;
+                // Reset retry count on new source
+                retryCountRef.current = 0;
+                usePlayerStore.getState().setPlaybackError(false);
 
+                const savedTime = usePlayerStore.getState().currentTime;
                 audio.src = src;
 
                 // Wait for metadata to load before attempting playback or seeking
@@ -68,37 +69,55 @@ export const AudioController: React.FC = () => {
                         // Restore playback position if we have one
                         if (savedTime > 0 && savedTime < audio.duration) {
                             audio.currentTime = savedTime;
-                            console.log(`[AudioController] Restored playback position: ${savedTime}`);
                         }
-
                         audio.removeEventListener('loadedmetadata', handleMetadata);
                         resolve();
                     };
 
-                    audio.addEventListener('loadedmetadata', handleMetadata);
-
-                    // Also resolve on error to avoid hanging
-                    audio.addEventListener('error', () => {
+                    const handleError = async (e: Event) => {
+                        console.error(`[AudioController] Error loading source:`, e);
                         audio.removeEventListener('loadedmetadata', handleMetadata);
+                        audio.removeEventListener('error', handleError);
+
+                        // Retry logic for local files (404s)
+                        if (isLocal && retryCountRef.current < 1) {
+                            console.log(`[AudioController] Attempting recovery for missing file...`);
+                            retryCountRef.current++;
+
+                            // Trigger re-download
+                            const { usePodcastStore } = await import('../../store/usePodcastStore');
+                            await usePodcastStore.getState().downloadEpisode(currentEpisode);
+
+                            // Force reload by briefly clearing src (or just re-running effect by dependency change, but here we are inside effect)
+                            // We can just call loadSource recursively or let the store update trigger re-render?
+                            // Store update (isDownloaded/localFilePath) might trigger re-render if currentEpisode changes.
+                            // But downloadEpisode updates the episode object in store, so currentEpisode in store changes, triggering this effect again.
+                            // So we just exit here.
+                            resolve();
+                            return;
+                        }
+
+                        // If retry failed or not local
+                        usePlayerStore.getState().setPlaybackError(true);
                         resolve();
-                    }, { once: true });
+                    };
+
+                    audio.addEventListener('loadedmetadata', handleMetadata);
+                    audio.addEventListener('error', handleError, { once: true });
                 });
 
-                // Now play if needed
-                if (isPlaying) {
+                if (isPlaying && !usePlayerStore.getState().playbackError) {
                     try {
                         await audio.play();
                     } catch (e) {
                         console.error("Playback failed", e);
                     }
                 }
-            } else {
-                console.log(`[AudioController] Source unchanged, skipping reload`);
             }
         };
 
         loadSource();
-    }, [currentEpisode]); // Removed isPlaying from dependencies
+    }, [currentEpisode]);
 
     // Handle play/pause
     useEffect(() => {
