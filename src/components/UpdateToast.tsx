@@ -3,7 +3,7 @@ import { Download, RefreshCw, X, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAutoUpdater } from '../hooks/useAutoUpdater';
 
 export const UpdateToast: React.FC = () => {
-    const { status, updateInfo, progress, error, downloadUpdate, quitAndInstall } = useAutoUpdater();
+    const { status, updateInfo, progress, downloadUpdate, quitAndInstall } = useAutoUpdater();
     const [dismissed, setDismissed] = React.useState(false);
 
     // Reset dismissed state when status changes to something interesting
