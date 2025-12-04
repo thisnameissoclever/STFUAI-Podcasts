@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { db } from '../services/db';
 
 export type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
 
@@ -42,8 +43,24 @@ export const useAutoUpdater = () => {
             }
         });
 
-        // Check for updates on mount (silent)
-        checkForUpdates({ silent: true });
+        // Check for updates on mount (silent) with a small delay
+        // Check preferences first to see if user wants prereleases
+        const initCheck = async () => {
+            try {
+                // Short delay to ensure app is ready
+                await new Promise(resolve => setTimeout(resolve, 3000));
+
+                const prefs = await db.getPreferences();
+                const allowPrerelease = prefs?.includePrereleases ?? true; // Default to true if not set
+
+                console.log('[useAutoUpdater] Starting silent check. Allow prerelease:', allowPrerelease);
+                checkForUpdates({ silent: true, allowPrerelease });
+            } catch (err) {
+                console.error('[useAutoUpdater] Error initializing update check:', err);
+            }
+        };
+
+        initCheck();
 
         return () => {
             unsubscribe();

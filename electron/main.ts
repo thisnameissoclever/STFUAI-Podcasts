@@ -285,9 +285,16 @@ if (!app.isPackaged) {
   autoUpdater.forceDevUpdateConfig = true;
 }
 
+let silentCheckInProgress = false;
+
 ipcMain.handle('check-for-updates', async (_, { allowPrerelease, silent } = { allowPrerelease: false, silent: false }) => {
   console.log(`[AutoUpdater] Checking for updates (allowPrerelease: ${allowPrerelease}, silent: ${silent})...`);
   autoUpdater.allowPrerelease = allowPrerelease;
+
+  if (silent) {
+    silentCheckInProgress = true;
+  }
+
   try {
     const result = await autoUpdater.checkForUpdates();
     console.log('[AutoUpdater] Check result:', result?.updateInfo);
@@ -298,6 +305,8 @@ ipcMain.handle('check-for-updates', async (_, { allowPrerelease, silent } = { al
       mainWindow?.webContents.send('update-status', { status: 'error', error: error.message });
     }
     return null;
+  } finally {
+    silentCheckInProgress = false;
   }
 });
 
@@ -320,7 +329,9 @@ ipcMain.handle('get-version', () => {
 });
 
 autoUpdater.on('checking-for-update', () => {
-  mainWindow?.webContents.send('update-status', { status: 'checking' });
+  if (!silentCheckInProgress) {
+    mainWindow?.webContents.send('update-status', { status: 'checking' });
+  }
 });
 
 autoUpdater.on('update-available', (info) => {
@@ -328,11 +339,17 @@ autoUpdater.on('update-available', (info) => {
 });
 
 autoUpdater.on('update-not-available', (info) => {
-  mainWindow?.webContents.send('update-status', { status: 'not-available', info });
+  if (!silentCheckInProgress) {
+    mainWindow?.webContents.send('update-status', { status: 'not-available', info });
+  }
 });
 
 autoUpdater.on('error', (err) => {
-  mainWindow?.webContents.send('update-status', { status: 'error', error: err.message });
+  if (!silentCheckInProgress) {
+    mainWindow?.webContents.send('update-status', { status: 'error', error: err.message });
+  } else {
+    console.log('[AutoUpdater] Suppressed error during silent check:', err.message);
+  }
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
