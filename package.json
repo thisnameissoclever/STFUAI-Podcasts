@@ -3,7 +3,7 @@
   "description": "STFUAI Podcasts - Automatic ad-skipping podcast player and manager",
   "author": "Tim Woodruff",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.2.5",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
