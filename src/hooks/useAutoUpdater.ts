@@ -42,24 +42,31 @@ export const useAutoUpdater = () => {
             }
         });
 
-        // Check for updates on mount
-        checkForUpdates();
+        // Check for updates on mount (silent)
+        checkForUpdates({ silent: true });
 
         return () => {
             unsubscribe();
         };
     }, []);
 
-    const checkForUpdates = useCallback(async () => {
+    const checkForUpdates = useCallback(async (options: { silent?: boolean } = {}) => {
         if (!window.electronAPI) return;
         try {
             setStatus('checking');
-            setError(null);
-            await window.electronAPI.checkForUpdates();
+            if (!options.silent) {
+                setError(null);
+            }
+            await window.electronAPI.checkForUpdates(options);
         } catch (err: any) {
             console.error('Failed to check for updates:', err);
-            setStatus('error');
-            setError(err.message);
+            if (!options.silent) {
+                setStatus('error');
+                setError(err.message);
+            } else {
+                // If silent, just log it and reset status to idle if it was checking
+                setStatus('idle');
+            }
         }
     }, []);
 

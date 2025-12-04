@@ -281,8 +281,12 @@ ipcMain.handle('open-storage-folder', async () => {
 autoUpdater.logger = console;
 autoUpdater.autoDownload = false; // Disable auto-download to allow user confirmation
 
-ipcMain.handle('check-for-updates', async (_, { allowPrerelease } = { allowPrerelease: false }) => {
-  console.log(`[AutoUpdater] Checking for updates (allowPrerelease: ${allowPrerelease})...`);
+if (!app.isPackaged) {
+  autoUpdater.forceDevUpdateConfig = true;
+}
+
+ipcMain.handle('check-for-updates', async (_, { allowPrerelease, silent } = { allowPrerelease: false, silent: false }) => {
+  console.log(`[AutoUpdater] Checking for updates (allowPrerelease: ${allowPrerelease}, silent: ${silent})...`);
   autoUpdater.allowPrerelease = allowPrerelease;
   try {
     const result = await autoUpdater.checkForUpdates();
@@ -290,7 +294,9 @@ ipcMain.handle('check-for-updates', async (_, { allowPrerelease } = { allowPrere
     return result;
   } catch (error: any) {
     console.error('[AutoUpdater] Error checking for updates:', error);
-    mainWindow?.webContents.send('update-status', { status: 'error', error: error.message });
+    if (!silent) {
+      mainWindow?.webContents.send('update-status', { status: 'error', error: error.message });
+    }
     return null;
   }
 });

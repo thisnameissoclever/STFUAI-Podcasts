@@ -22,21 +22,22 @@ export const UpdateToast: React.FC = () => {
             position: 'fixed',
             bottom: '20px',
             right: '20px',
-            backgroundColor: '#2a2a2a',
-            border: '1px solid #444',
-            borderRadius: '8px',
-            padding: '16px',
-            width: '320px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            backgroundColor: '#1e1e1e',
+            border: '1px solid #333',
+            borderRadius: '12px',
+            padding: '20px',
+            width: '360px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
             zIndex: 9999,
-            animation: 'slideIn 0.3s ease-out'
+            animation: 'slideIn 0.3s ease-out',
+            fontFamily: 'system-ui, -apple-system, sans-serif'
         }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', color: '#fff' }}>
                     {status === 'available' && <SparklesIcon />}
                     {status === 'downloading' && <DownloadIcon />}
-                    {status === 'downloaded' && <CheckCircle size={18} className="text-green-500" />}
-                    {status === 'error' && <AlertCircle size={18} className="text-red-500" />}
+                    {status === 'downloaded' && <CheckCircle size={20} className="text-green-500" />}
+                    {status === 'error' && <AlertCircle size={20} className="text-red-500" />}
 
                     {status === 'available' && 'Update Available'}
                     {status === 'downloading' && 'Downloading Update...'}
@@ -45,27 +46,30 @@ export const UpdateToast: React.FC = () => {
                 </h4>
                 <button
                     onClick={() => setDismissed(true)}
-                    style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', padding: 0 }}
+                    style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                     <X size={18} />
                 </button>
             </div>
 
-            <div style={{ fontSize: '0.875rem', color: '#ccc', marginBottom: '12px' }}>
+            <div style={{ fontSize: '0.9rem', color: '#ccc', marginBottom: '16px', lineHeight: '1.5' }}>
                 {status === 'available' && (
                     <>
-                        <p style={{ margin: '0 0 8px 0' }}>Version {updateInfo?.version} is available.</p>
+                        <p style={{ margin: '0 0 12px 0' }}>
+                            Version <span style={{ color: '#fff', fontWeight: 600 }}>{updateInfo?.version}</span> is available.
+                        </p>
                         {updateInfo?.releaseNotes && (
-                            <div style={{
-                                maxHeight: '100px',
-                                overflowY: 'auto',
-                                background: '#1a1a1a',
-                                padding: '8px',
-                                borderRadius: '4px',
-                                fontSize: '0.75rem',
-                                color: '#aaa'
-                            }}>
-                                {updateInfo.releaseNotes.replace(/<[^>]*>?/gm, '')}
+                            <div style={{ marginBottom: '12px' }}>
+                                <a
+                                    href={`https://github.com/thisnameissoclever/STFUAI-Podcasts/releases/tag/v${updateInfo.version}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color: '#3b82f6', textDecoration: 'none', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                    View Release Notes <span style={{ fontSize: '1.2em' }}>›</span>
+                                </a>
                             </div>
                         )}
                     </>
@@ -76,19 +80,19 @@ export const UpdateToast: React.FC = () => {
                         <div style={{
                             width: '100%',
                             height: '6px',
-                            backgroundColor: '#444',
+                            backgroundColor: '#333',
                             borderRadius: '3px',
                             overflow: 'hidden',
-                            marginBottom: '4px'
+                            marginBottom: '8px'
                         }}>
                             <div style={{
                                 width: `${progress?.percent || 0}%`,
                                 height: '100%',
-                                backgroundColor: 'var(--accent-color, #3b82f6)',
+                                backgroundColor: '#3b82f6',
                                 transition: 'width 0.2s ease'
                             }} />
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#888' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#888' }}>
                             <span>{Math.round(progress?.percent || 0)}%</span>
                             <span>{((progress?.transferred || 0) / 1024 / 1024).toFixed(1)} MB</span>
                         </div>
@@ -100,30 +104,39 @@ export const UpdateToast: React.FC = () => {
                 )}
 
                 {status === 'error' && (
-                    <p style={{ margin: 0, color: '#ef4444' }}>{error || 'An unknown error occurred.'}</p>
+                    <p style={{ margin: 0, color: '#ef4444' }}>
+                        Unable to check for updates. Please try again later.
+                        <br />
+                        <span style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '4px', display: 'block' }}>
+                            (Check console for details)
+                        </span>
+                    </p>
                 )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 {status === 'available' && (
                     <button
                         onClick={downloadUpdate}
                         style={{
-                            backgroundColor: 'var(--accent-color, #3b82f6)',
+                            backgroundColor: '#3b82f6',
                             color: 'white',
                             border: 'none',
-                            borderRadius: '4px',
-                            padding: '6px 12px',
-                            fontSize: '0.875rem',
+                            borderRadius: '6px',
+                            padding: '8px 16px',
+                            fontSize: '0.9rem',
                             fontWeight: 500,
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px'
+                            gap: '8px',
+                            transition: 'background-color 0.2s'
                         }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
                     >
-                        <Download size={14} />
-                        Download
+                        <Download size={16} />
+                        Download Update
                     </button>
                 )}
 
@@ -134,17 +147,20 @@ export const UpdateToast: React.FC = () => {
                             backgroundColor: '#22c55e',
                             color: 'white',
                             border: 'none',
-                            borderRadius: '4px',
-                            padding: '6px 12px',
-                            fontSize: '0.875rem',
+                            borderRadius: '6px',
+                            padding: '8px 16px',
+                            fontSize: '0.9rem',
                             fontWeight: 500,
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px'
+                            gap: '8px',
+                            transition: 'background-color 0.2s'
                         }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#22c55e'}
                     >
-                        <RefreshCw size={14} />
+                        <RefreshCw size={16} />
                         Restart & Install
                     </button>
                 )}
