@@ -15,7 +15,7 @@ export const Layout = () => {
             <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
             <div className="main-content-wrapper">
-                {!isSidebarOpen && (
+                {!isSidebarOpen && !isPlayerOpen && (
                     <button
                         onClick={() => setIsSidebarOpen(true)}
                         style={{
