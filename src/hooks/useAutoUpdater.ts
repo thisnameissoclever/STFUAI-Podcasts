@@ -67,7 +67,7 @@ export const useAutoUpdater = () => {
         };
     }, []);
 
-    const checkForUpdates = useCallback(async (options: { silent?: boolean } = {}) => {
+    const checkForUpdates = useCallback(async (options: { silent?: boolean; allowPrerelease?: boolean } = {}) => {
         if (!window.electronAPI) return;
         try {
             setStatus('checking');
