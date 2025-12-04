@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearAllData: () => ipcRenderer.invoke('clear-all-data'),
     openStorageFolder: () => ipcRenderer.invoke('open-storage-folder'),
     getStorageInfo: () => ipcRenderer.invoke('get-storage-info'),
-    checkForUpdates: (options?: { allowPrerelease: boolean }) => ipcRenderer.invoke('check-for-updates', options),
+    checkForUpdates: (options?: { allowPrerelease?: boolean; silent?: boolean }) => ipcRenderer.invoke('check-for-updates', options),
     downloadUpdate: () => ipcRenderer.invoke('download-update'),
     quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
     getVersion: () => ipcRenderer.invoke('get-version'),
