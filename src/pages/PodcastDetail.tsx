@@ -73,7 +73,7 @@ export const PodcastDetail: React.FC = () => {
     }
 
     return (
-        <div className="podcast-detail-container">
+        <div className="podcast-detail-container" style={{ paddingTop: '2.5rem' }}>
             {/* Header */}
             <div className="podcast-header">
                 <div className="podcast-cover-large">
