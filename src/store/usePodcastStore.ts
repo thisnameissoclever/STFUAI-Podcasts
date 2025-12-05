@@ -410,9 +410,23 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 
     ensureQueueDownloaded: async (queue: Episode[]) => {
         const { downloadEpisode, isDownloaded, isDownloading } = get();
+        const { verifyEpisodeFileExists, recoverMissingEpisode } = await import('../services/episodeRecovery');
 
         for (const episode of queue) {
-            if (!isDownloaded(episode.id) && !isDownloading(episode.id)) {
+            if (isDownloading(episode.id)) {
+                // Already downloading, skip
+                continue;
+            }
+
+            if (isDownloaded(episode.id)) {
+                // Marked as downloaded - verify file actually exists
+                const fileExists = await verifyEpisodeFileExists(episode);
+                if (!fileExists) {
+                    console.log(`[PodcastStore] Queue episode "${episode.title}" has missing file. Recovering...`);
+                    await recoverMissingEpisode(episode.id, episode.playbackPosition);
+                }
+            } else {
+                // Not downloaded yet - initiate download
                 console.log('Auto-downloading queued episode:', episode.title);
                 downloadEpisode(episode);
             }

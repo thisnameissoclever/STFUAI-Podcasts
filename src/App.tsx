@@ -27,6 +27,32 @@ function App() {
       await usePodcastStore.getState().loadSubscriptions();
       await usePodcastStore.getState().loadEpisodes();
 
+      // Verify files exist for currently-playing episode and queue before continuing
+      // This ensures missing files are recovered before playback can fail
+      const { verifyAndRecoverEpisodes } = await import('./services/episodeRecovery');
+      const playerState = usePlayerStore.getState();
+      const episodesToVerify = [];
+
+      // Add current episode if it exists and is marked as downloaded
+      if (playerState.currentEpisode?.isDownloaded) {
+        episodesToVerify.push(playerState.currentEpisode);
+      }
+
+      // Add all queued episodes that are marked as downloaded
+      for (const queuedEpisode of playerState.queue) {
+        if (queuedEpisode.isDownloaded) {
+          episodesToVerify.push(queuedEpisode);
+        }
+      }
+
+      if (episodesToVerify.length > 0) {
+        console.log(`[App] Verifying ${episodesToVerify.length} episode files on startup...`);
+        const recoveryResults = await verifyAndRecoverEpisodes(episodesToVerify);
+        if (recoveryResults.length > 0) {
+          console.log(`[App] Recovered ${recoveryResults.filter(r => r.success).length}/${recoveryResults.length} missing episodes`);
+        }
+      }
+
       // Initial feed refresh
       await feedService.refreshFeeds();
       lastRefreshTime.current = Date.now();

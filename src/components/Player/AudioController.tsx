@@ -14,6 +14,7 @@ export const AudioController: React.FC = () => {
     const lastSavedTimeRef = useRef(0);
     const retryCountRef = useRef(0);
     const lastStoreUpdateRef = useRef(0);
+    const isRecoveringRef = useRef(false); // Prevent concurrent recovery attempts
 
     // Use selectors to prevent re-renders on unrelated state changes
     // (Spoiler: This didn't actually work, but... whatever, I'm leaving it 
@@ -86,26 +87,86 @@ export const AudioController: React.FC = () => {
                         audio.removeEventListener('loadedmetadata', handleMetadata);
                         audio.removeEventListener('error', handleError);
 
-                        // Retry logic for local files 40x errors
-                        if (isLocal && retryCountRef.current < 1) {
+                        // Attempt recovery for local files with missing files (one retry)
+                        // Also check isRecoveringRef to prevent concurrent recovery from multiple triggers
+                        if (isLocal && retryCountRef.current < 1 && !isRecoveringRef.current) {
                             console.log(`[AudioController] Attempting recovery for missing file...`);
                             retryCountRef.current++;
+                            isRecoveringRef.current = true;
 
-                            // Trigger re-download
-                            const { usePodcastStore } = await import('../../store/usePodcastStore');
-                            await usePodcastStore.getState().downloadEpisode(currentEpisode);
+                            try {
+                                // Use the modular recovery service
+                                const { recoverMissingEpisode } = await import('../../services/episodeRecovery');
+                                const currentTime = usePlayerStore.getState().currentTime;
+                                const result = await recoverMissingEpisode(currentEpisode.id, currentTime);
 
-                            // Force reload by briefly clearing src (or just re-running effect by dependency change, but here we are inside effect)
-                            // We can just call loadSource recursively or let the store update trigger re-render?
-                            // Store update (isDownloaded/localFilePath) might trigger re-render if currentEpisode changes.
-                            // But downloadEpisode updates the episode object in store, so currentEpisode in store changes, triggering this effect again.
-                            // So we just exit here.
+                                if (result.success && result.episode) {
+                                    console.log(`[AudioController] Recovery successful. Reloading source...`);
+
+                                    // Small delay to ensure file is fully flushed to disk
+                                    await new Promise(r => setTimeout(r, 100));
+
+                                    // Clear the current source to reset any cached error state
+                                    audio.removeAttribute('src');
+                                    audio.load(); // Force clear the buffer
+
+                                    // Add event listeners BEFORE setting the new source
+                                    const onRecoveredMetadata = () => {
+                                        console.log(`[AudioController] Recovered source loaded. Duration: ${audio.duration}`);
+
+                                        // Restore playback position
+                                        const positionToRestore = result.episode?.playbackPosition || currentTime;
+                                        if (positionToRestore > 0 && positionToRestore < audio.duration) {
+                                            audio.currentTime = positionToRestore;
+                                            console.log(`[AudioController] Restored playback position to ${positionToRestore}s`);
+                                        }
+
+                                        audio.playbackRate = usePlayerStore.getState().playbackRate;
+                                        isRecoveringRef.current = false;
+                                        retryCountRef.current = 0; // Reset retry count for future errors
+
+                                        // Resume playback if we were playing
+                                        if (usePlayerStore.getState().isPlaying) {
+                                            audio.play().catch(err => console.error('[AudioController] Resume after recovery failed:', err));
+                                        }
+                                    };
+
+                                    const onRecoveredError = (evt: Event) => {
+                                        console.error(`[AudioController] Recovery succeeded but source still failed to load:`, evt);
+                                        audio.removeEventListener('loadedmetadata', onRecoveredMetadata);
+                                        isRecoveringRef.current = false;
+                                        usePlayerStore.getState().setPlaybackError(true);
+                                    };
+
+                                    audio.addEventListener('loadedmetadata', onRecoveredMetadata, { once: true });
+                                    audio.addEventListener('error', onRecoveredError, { once: true });
+
+                                    // Now set the new source and trigger load
+                                    const newSrc = `local-media://${result.episode.id}.mp3`;
+                                    audio.src = newSrc;
+                                    audio.load(); // Explicitly trigger load
+
+                                    // Update the current episode in the player store to trigger UI updates
+                                    usePlayerStore.setState({ currentEpisode: result.episode });
+                                } else {
+                                    console.error(`[AudioController] Recovery failed: ${result.error}`);
+                                    isRecoveringRef.current = false;
+                                    usePlayerStore.getState().setPlaybackError(true);
+                                }
+                            } catch (err) {
+                                console.error(`[AudioController] Recovery threw error:`, err);
+                                isRecoveringRef.current = false;
+                                usePlayerStore.getState().setPlaybackError(true);
+                            }
+
                             resolve();
                             return;
                         }
 
-                        // If retry failed or not local
-                        usePlayerStore.getState().setPlaybackError(true);
+                        // If retry failed, already recovering, or not local
+                        if (!isRecoveringRef.current) {
+                            usePlayerStore.getState().setPlaybackError(true);
+                        }
                         resolve();
                     };
 

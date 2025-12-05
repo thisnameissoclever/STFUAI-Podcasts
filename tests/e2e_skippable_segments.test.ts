@@ -80,7 +80,7 @@ describe('E2E Skippable Segment Flow', () => {
         expect(episode.adSegments![0].type).toBe('advertisement');
         expect(episode.adSegments![0].startTimeSeconds).toBe(10);
         expect(episode.adSegments![0].endTimeSeconds).toBe(20);
-        expect(episode.adSegments![0].description).toBe('Detected via speaker label');
+        expect(episode.adSegments![0].description).toBe('Detected via transcript diarization analysis. Click "Analyze" to perform advanced skippable segment detection.');
 
         // Verify DB save was called with updated episode
         expect(db.saveEpisode).toHaveBeenCalledWith(expect.objectContaining({
