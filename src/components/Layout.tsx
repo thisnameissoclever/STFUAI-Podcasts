@@ -23,7 +23,7 @@ export const Layout = () => {
                             top: '1rem',
                             left: '1rem',
                             zIndex: 100,
-                            background: 'rgba(0,0,0,0.5)',
+                            background: 'transparent',
                             border: 'none',
                             color: 'white',
                             padding: '0.5rem',
@@ -32,7 +32,6 @@ export const Layout = () => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            backdropFilter: 'blur(4px)'
                         }}
                         title="Open Menu"
                     >

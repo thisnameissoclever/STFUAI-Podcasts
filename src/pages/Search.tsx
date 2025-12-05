@@ -30,6 +30,7 @@ export const Search: React.FC = () => {
 
     return (
         <div className="page-container">
+            <h2 className="page-title" style={{ marginBottom: '0.5rem' }}>Search</h2>
             <div className="search-header">
                 <form onSubmit={handleSearch} className="search-form">
                     <SearchIcon className="search-icon" size={20} />
