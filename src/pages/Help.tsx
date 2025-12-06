@@ -92,7 +92,7 @@ export const Help: React.FC = () => {
 
                     <div style={{ marginBottom: '2rem' }}>
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            OpenAI (Ad Detection)
+                            OpenAI (Advanced Ad & Skippable Segment Detection)
                         </h3>
                         <p style={{ color: 'var(--text-secondary)', marginLeft: '2rem' }}>
                             Used to analyze the transcript and identify skippable segments.

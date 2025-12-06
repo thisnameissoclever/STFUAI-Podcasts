@@ -409,26 +409,31 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
     },
 
     ensureQueueDownloaded: async (queue: Episode[]) => {
-        const { downloadEpisode, isDownloaded, isDownloading } = get();
+        const { downloadEpisode, isDownloaded, isDownloading, episodes } = get();
         const { verifyEpisodeFileExists, recoverMissingEpisode } = await import('../services/episodeRecovery');
 
-        for (const episode of queue) {
-            if (isDownloading(episode.id)) {
+        for (const queuedEpisode of queue) {
+            // CRITICAL: Use fresh episode data from the store, not the potentially stale queue object.
+            // The queue contains snapshot copies of episodes that may have outdated isDownloaded flags,
+            // causing false "missing file" detections and unnecessary re-downloads/re-transcriptions.
+            const freshEpisode = episodes[queuedEpisode.id] || queuedEpisode;
+
+            if (isDownloading(freshEpisode.id)) {
                 // Already downloading, skip
                 continue;
             }
 
-            if (isDownloaded(episode.id)) {
-                // Marked as downloaded - verify file actually exists
-                const fileExists = await verifyEpisodeFileExists(episode);
+            if (isDownloaded(freshEpisode.id)) {
+                // Marked as downloaded - verify file actually exists using fresh episode data
+                const fileExists = await verifyEpisodeFileExists(freshEpisode);
                 if (!fileExists) {
-                    console.log(`[PodcastStore] Queue episode "${episode.title}" has missing file. Recovering...`);
-                    await recoverMissingEpisode(episode.id, episode.playbackPosition);
+                    console.log(`[PodcastStore] Queue episode "${freshEpisode.title}" has missing file. Recovering...`);
+                    await recoverMissingEpisode(freshEpisode.id, freshEpisode.playbackPosition);
                 }
             } else {
                 // Not downloaded yet - initiate download
-                console.log('Auto-downloading queued episode:', episode.title);
-                downloadEpisode(episode);
+                console.log('Auto-downloading queued episode:', freshEpisode.title);
+                downloadEpisode(freshEpisode);
             }
         }
     },

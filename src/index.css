@@ -710,13 +710,8 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  opacity: 0;
-  transition: opacity 0.2s;
 }
 
-.queue-item:hover .queue-actions {
-  opacity: 1;
-}
 
 .queue-action-btn {
   background: none;
@@ -1024,6 +1019,7 @@ body {
   display: flex;
   flex-direction: column;
   animation: fadeIn 0.2s ease-out;
+  overflow: hidden;
 }
 
 .queue-header {
