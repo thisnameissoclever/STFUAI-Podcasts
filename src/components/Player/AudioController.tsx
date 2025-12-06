@@ -15,6 +15,7 @@ export const AudioController: React.FC = () => {
     const retryCountRef = useRef(0);
     const lastStoreUpdateRef = useRef(0);
     const isRecoveringRef = useRef(false); // Prevent concurrent recovery attempts
+    const isEndingRef = useRef(false); // Prevent ad processing while episode is ending
 
     // Use selectors to prevent re-renders on unrelated state changes
     // (Spoiler: This didn't actually work, but... whatever, I'm leaving it 
@@ -260,11 +261,28 @@ export const AudioController: React.FC = () => {
             const currentEpId = usePlayerStore.getState().currentEpisode?.id;
             if (!currentEpId) return;
 
+            //If we're already ending the episode, don't process ads
+            // This prevents the infinite loop where timeupdate fires before handleEnded completes
+            if (isEndingRef.current) {
+                return;
+            }
+
             const freshEpisode = podcastStore.episodes[currentEpId];
+            const duration = audio.duration;
+
+            //If we're at or past the end of the episode, don't process ads
+            // This prevents infinite loops when an ad segment extends past the actual audio duration
+            if (duration > 0 && currentTime >= duration - 0.5) {
+                return;
+            }
 
             if (freshEpisode?.adSegments && freshEpisode.adSegments.length > 0) {
+                //Clamp ad segment checks to actual duration to prevent issues with ads
+                // that extend past the audio file's actual length. 
+                //This took way too long to figure out how to fix. 
                 const currentAd = freshEpisode.adSegments.find(
-                    seg => currentTime >= seg.startTimeSeconds && currentTime < seg.endTimeSeconds
+                    seg => currentTime >= seg.startTimeSeconds &&
+                        currentTime < Math.min(seg.endTimeSeconds, duration - 0.5)
                 );
 
                 if (currentAd) {
@@ -284,15 +302,21 @@ export const AudioController: React.FC = () => {
                         // When skip sound ends, seek and resume
                         skipAudioRef.current.onended = () => {
                             if (audio) {
-                                const duration = audio.duration;
+                                const audioDuration = audio.duration;
                                 // Check if the ad ends at or after the episode end (within a small margin)
-                                if (currentAd.endTimeSeconds >= duration - 1) {
+                                // Also handle case where ad.endTimeSeconds is past the actual audio duration
+                                const effectiveEndTime = Math.min(currentAd.endTimeSeconds, audioDuration);
+
+                                if (effectiveEndTime >= audioDuration - 0.5) {
                                     console.log('[AudioController] Ad ends at episode end, finishing episode');
-                                    audio.currentTime = duration;
+                                    // Set ending flag BEFORE resetting skip flag to prevent race condition
+                                    isEndingRef.current = true;
                                     isSkippingRef.current = false;
-                                    // handleEnded will be triggered by the audio element
+                                    // Directly dispatch the ended event instead of seeking to duration
+                                    // This is more reliable than seeking and hoping the ended event fires
+                                    audio.dispatchEvent(new Event('ended'));
                                 } else {
-                                    audio.currentTime = currentAd.endTimeSeconds;
+                                    audio.currentTime = effectiveEndTime;
                                     isSkippingRef.current = false;
                                     if (usePlayerStore.getState().isPlaying) {
                                         audio.play().catch(e => console.error("Resume failed", e));
@@ -332,6 +356,9 @@ export const AudioController: React.FC = () => {
                 const { markAsPlayed, playNextInQueue } = usePlayerStore.getState();
                 await markAsPlayed(currentEpisode.id);
 
+                // Reset the ending flag now that episode is fully processed
+                isEndingRef.current = false;
+
                 // Check auto-play preference before playing next
                 const prefs = await db.getPreferences();
                 if (prefs.autoPlayNext) {
@@ -347,18 +374,17 @@ export const AudioController: React.FC = () => {
             audio.removeEventListener('timeupdate', handleTimeUpdate);
             audio.removeEventListener('ended', handleEnded);
         };
-    }, []); // Empty dependency array means this effect runs once on mount (and cleanup on unmount)
-    // But wait, audioRef.current might be null initially? 
-    // Actually, refs are stable, but the DOM element might not be attached yet in the very first render pass if it's conditional.
-    // But here <audio> is always rendered.
-    // However, to be safe, we should probably depend on something that signals the audio element is ready, or just rely on React setting the ref before effects run.
-    // React guarantees refs are set before effects run.
-    // Don't mind me; just having a conversation with myself by way of Google in my own code comments. 
+    }, []); //Empty dependency array means this effect runs once on mount (and cleanup on unmount)
+    //Refs are stable, but the DOM element might not be attached yet in the very first render pass if it's conditional.
+    //But here `audio` is always rendered.
+    //However, to be safe, we should probably depend on something that signals the audio element is ready, or just rely on React setting the ref before effects run.
+    //Oh. React makes sure refs are set before effects run.
+    //Don't mind me; just having a conversation with myself by way of Google in my own code comments. 
 
     return (
         <audio
             ref={audioRef}
-        // No props here, all handled via manual event listeners
+        //No props here, all handled via manual event listeners
         />
     );
 };

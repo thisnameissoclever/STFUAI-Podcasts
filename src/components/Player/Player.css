@@ -442,10 +442,12 @@
     background-color: rgba(0, 0, 0, 0.9);
     z-index: 50;
     padding: 2rem;
+    overflow: hidden;
 }
 
 .queue-container {
     max-width: 48rem;
+    width: 100%;
     margin: 0 auto;
     height: 100%;
     display: flex;
