@@ -47,6 +47,8 @@ OpenAI is an AI service that is used to detect skippable segments in your favori
 
 The public release version of this app will automatically include an OpenAI API key for free up to some amount of usage per month.
 
+(*TODO: Update instructions to include screenshots*)
+
 # Get in touch
 
 If you have any questions, feature requests, bug reports, or you just want to hang out with some fellow podcast-enjoyers, join us in the [Discord server](https://discord.stfuai.com)! 
