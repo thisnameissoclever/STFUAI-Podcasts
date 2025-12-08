@@ -30,3 +30,6 @@ release
 .env
 .env.local
 .env.production
+
+# Agent configuration
+.agent/
