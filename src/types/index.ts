@@ -94,7 +94,7 @@ export interface AdSegment {
 
 export type TranscriptionProvider = 'assemblyai' | 'openai-whisper';
 export type CompressionQuality = 0 | 16 | 32 | 64 | 96 | 128; // kbps (0 = no compression, use original file)
-export type OpenAIModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-4-turbo' | 'gpt-3.5-turbo';
+export type OpenAIModel = 'gpt-5-mini' | 'gpt-5-nano';
 
 export interface UserPreferences {
     playbackSpeed: number;

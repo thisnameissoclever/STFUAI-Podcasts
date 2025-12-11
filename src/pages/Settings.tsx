@@ -319,13 +319,11 @@ export default function Settings() {
                         <label htmlFor="openai-model">OpenAI Model (for Advanced Detection)</label>
                         <select
                             id="openai-model"
-                            value={preferences.openAiModel || 'gpt-4o-mini'}
-                            onChange={(e) => updatePreference('openAiModel', e.target.value as 'gpt-4o-mini' | 'gpt-4o' | 'gpt-4-turbo' | 'gpt-3.5-turbo')}
+                            value={preferences.openAiModel || 'gpt-5-mini'}
+                            onChange={(e) => updatePreference('openAiModel', e.target.value as 'gpt-5-mini' | 'gpt-5-nano')}
                         >
-                            <option value="gpt-4o-mini">GPT-4o Mini (Recommended - Fast & Cheap)</option>
-                            <option value="gpt-4o">GPT-4o (Best Quality)</option>
-                            <option value="gpt-4-turbo">GPT-4 Turbo (Balanced)</option>
-                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Cheapest, Lower Quality)</option>
+                            <option value="gpt-5-mini">GPT-5 Mini (Upcoming - Fast & Cheap)</option>
+                            <option value="gpt-5-nano">GPT-5 Nano (Upcoming - Ultra Fast & Ultra Cheap)</option>
                         </select>
                         <p className="setting-description">
                             Select which OpenAI model to use for advanced skippable segment detection. 

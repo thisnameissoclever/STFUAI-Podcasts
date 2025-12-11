@@ -30,7 +30,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     skipBackwardSeconds: 20,
     debugLogsEnabled: true, //Set to false for production stable build
     refreshIntervalMinutes: 5,
-    openAiModel: 'gpt-4o-mini',
+    openAiModel: 'gpt-5-mini',
     includePrereleases: true,
 };
 

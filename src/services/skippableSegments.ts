@@ -124,7 +124,7 @@ export async function detectAdvancedSegments(episode: Episode): Promise<AdSegmen
     const { db } = await import('./db');
     const prefs = await db.getPreferences();
     const apiKey = prefs.openAiApiKey || import.meta.env.VITE_OPENAI_API_KEY || '';
-    const model = prefs.openAiModel || 'gpt-4o-mini';
+    const model = prefs.openAiModel || 'gpt-5-mini';
 
     if (!apiKey) {
         throw new Error('API key is required for advanced ad detection. Please check your settings.');
