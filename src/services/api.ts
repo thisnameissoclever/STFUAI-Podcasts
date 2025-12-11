@@ -43,6 +43,21 @@ export const api = {
         return response.data;
     },
 
+    searchByTitle: async (title: string) => {
+        const response = await client.get(`/search/bytitle?q=${encodeURIComponent(title)}&similar`);
+        return response.data;
+    },
+
+    searchByPerson: async (person: string) => {
+        const response = await client.get(`/search/byperson?q=${encodeURIComponent(person)}`);
+        return response.data;
+    },
+
+    getPodcastByFeedUrl: async (feedUrl: string) => {
+        const response = await client.get(`/podcasts/byfeedurl?url=${encodeURIComponent(feedUrl)}`);
+        return response.data;
+    },
+
     getPodcastByFeedId: async (id: number) => {
         const response = await client.get(`/podcasts/byfeedid?id=${id}`);
         return response.data;

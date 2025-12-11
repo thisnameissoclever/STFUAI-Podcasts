@@ -1,8 +1,7 @@
-import type { Transcript, CompressionQuality } from '../types';
+import type { Transcript, TranscriptSegment, TranscriptWord, CompressionQuality } from '../types';
 
-// NOTE: Whisper transcription is currently not in use.
-// The AssemblyAI service is the active transcription provider.
-// This file is kept for potential future use but the implementation is commented out.
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
+const API_ENDPOINT = 'https://api.openai.com/v1/audio/transcriptions';
 
 /**
  * Transcribe an episode audio file using OpenAI Whisper API
@@ -11,21 +10,6 @@ import type { Transcript, CompressionQuality } from '../types';
  * @param apiKeyOverride Optional API key to use instead of env var
  * @param compressionQuality Bitrate for compression (0 = no compression, use original)
  */
-export async function transcribeEpisode(
-    _filename: string,
-    _episodeId: number,
-    _apiKeyOverride?: string,
-    _compressionQuality: CompressionQuality = 16
-): Promise<Transcript> {
-    throw new Error('Whisper transcription is currently disabled. Please use AssemblyAI instead.');
-}
-
-/*
-// ORIGINAL IMPLEMENTATION - COMMENTED OUT
-
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
-const API_ENDPOINT = 'https://api.openai.com/v1/audio/transcriptions';
-
 export async function transcribeEpisode(
     filename: string,
     episodeId: number,
@@ -64,10 +48,11 @@ export async function transcribeEpisode(
 
         // Step 3: Create form data for API request
         const formData = new FormData();
-        formData.append('file', blob, fileToUpload); // BUG FIX: was 'compressedFilename'
+        formData.append('file', blob, fileToUpload.split('/').pop() || 'audio.mp3');
         formData.append('model', 'whisper-1');
         formData.append('response_format', 'verbose_json');
         formData.append('timestamp_granularities[]', 'word');
+        formData.append('timestamp_granularities[]', 'segment');
 
         console.log(`[Whisper] Sending request to OpenAI API...`);
         const response = await fetch(API_ENDPOINT, {
@@ -86,37 +71,50 @@ export async function transcribeEpisode(
         const data = await response.json();
         console.log('[Whisper] Transcription complete');
 
-        // Step 4: Parse response into our format
+        // Step 4: Store raw verbose_json response
+        const rawVerboseJson = JSON.stringify(data);
+
+        // Step 5: Parse response into our format
         const words: TranscriptWord[] = [];
         const segments: TranscriptSegment[] = [];
-        let fullText = '';
+        let fullText = data.text || '';
 
-        if (data.words) {
+        // Parse word-level timestamps
+        if (data.words && Array.isArray(data.words)) {
             data.words.forEach((w: any) => {
                 words.push({
                     word: w.word,
                     startTime: w.start,
                     endTime: w.end,
+                    // Note: No speaker field - OpenAI Whisper doesn't provide speaker diarization
                 });
             });
         }
 
-        // Group words into segments (split by sentence or every ~5 words for better granularity)
-        const wordsPerSegment = 1;
-        for (let i = 0; i < words.length; i += wordsPerSegment) {
-            const segmentWords = words.slice(i, i + wordsPerSegment);
-            if (segmentWords.length > 0) {
-                const text = segmentWords.map(w => w.word).join(' ');
-                fullText += text + ' ';
+        // Parse segments from OpenAI's response
+        if (data.segments && Array.isArray(data.segments)) {
+            data.segments.forEach((seg: any) => {
+                // Extract words for this segment if available
+                const segmentWords: TranscriptWord[] = [];
+                if (seg.words && Array.isArray(seg.words)) {
+                    seg.words.forEach((w: any) => {
+                        segmentWords.push({
+                            word: w.word,
+                            startTime: w.start,
+                            endTime: w.end,
+                        });
+                    });
+                }
 
                 segments.push({
-                    id: Math.floor(i / wordsPerSegment),
-                    start: segmentWords[0].startTime,
-                    end: segmentWords[segmentWords.length - 1].endTime,
-                    text: text.trim(),
+                    id: seg.id,
+                    start: seg.start,
+                    end: seg.end,
+                    text: seg.text.trim(),
                     words: segmentWords,
+                    // Note: No speaker field - OpenAI Whisper doesn't provide speaker diarization
                 });
-            }
+            });
         }
 
         const transcript: Transcript = {
@@ -124,11 +122,18 @@ export async function transcribeEpisode(
             text: fullText.trim(),
             segments,
             language: data.language || 'en',
-            duration: words.length > 0 ? words[words.length - 1].endTime : 0,
+            duration: data.duration || (words.length > 0 ? words[words.length - 1].endTime : 0),
             createdAt: Date.now(),
+            rawVerboseJson, // Store the raw response for debugging/advanced use
         };
 
-        console.log('[Whisper] Transcript processed:', transcript);
+        console.log('[Whisper] Transcript processed:', {
+            episodeId: transcript.episodeId,
+            duration: transcript.duration,
+            segmentCount: transcript.segments.length,
+            wordCount: words.length,
+            language: transcript.language,
+        });
 
         // Cleanup: Only delete the compressed file if we created one
         if (didCompress) {
@@ -146,4 +151,3 @@ export async function transcribeEpisode(
         throw error;
     }
 }
-*/
