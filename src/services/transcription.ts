@@ -16,12 +16,10 @@ export async function transcribeEpisode(
 
     console.log(`[Transcription] Using provider: ${provider}, compression: ${compressionQuality === 0 ? 'Original (none)' : `${compressionQuality}kbps`}`);
 
-    //Keeping this even though this should never fire because we're removing Whisper-1 
-    // transcription model support. 
-    if (provider === 'whisper') {
+    if (provider === 'openai-whisper') {
         const { transcribeEpisode: transcribeWithWhisper } = await import('./whisper');
-        // Whisper doesn't support speaker labels in our current implementation
-        console.warn('[Transcription] Whisper provider selected. Speaker diarization (and thus basic ad detection) will be unavailable.');
+        // OpenAI Whisper doesn't support speaker labels
+        console.warn('[Transcription] OpenAI Whisper selected. Speaker diarization (and thus basic ad detection) will be unavailable.');
         return transcribeWithWhisper(filename, episodeId, prefs.openAiApiKey, compressionQuality);
     }
 

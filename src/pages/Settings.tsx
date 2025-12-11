@@ -252,14 +252,15 @@ export default function Settings() {
                         <label htmlFor="transcription-provider">Provider</label>
                         <select
                             id="transcription-provider"
-                            value="assemblyai"
-                            disabled={true}
-                            style={{ opacity: 0.7, cursor: 'not-allowed' }}
+                            value={preferences.transcriptionProvider || 'assemblyai'}
+                            onChange={(e) => updatePreference('transcriptionProvider', e.target.value as 'assemblyai' | 'openai-whisper')}
                         >
-                            <option value="assemblyai">AssemblyAI (Recommended)</option>
+                            <option value="assemblyai">AssemblyAI (Speaker labels + Basic detection)</option>
+                            <option value="openai-whisper">OpenAI Whisper (Cheaper, Advanced detection only)</option>
                         </select>
                         <p className="setting-description">
-                            AssemblyAI is currently the only supported transcription provider. More coming soon. Maybe. I dunno. We'll see.
+                            <strong>AssemblyAI:</strong> ~$0.65/hour. Provides speaker diarization for automatic basic ad detection.<br/>
+                            <strong>OpenAI Whisper:</strong> ~$0.36/hour. More affordable, uses AI-powered advanced detection only.
                         </p>
                     </div>
 
@@ -280,18 +281,53 @@ export default function Settings() {
                         </div>
                     )}
 
+                    {preferences.transcriptionProvider === 'openai-whisper' && (
+                        <div className="setting-item">
+                            <label>OpenAI API Key (for Whisper Transcription)</label>
+                            <input
+                                type="password"
+                                value={preferences.openAiApiKey || ''}
+                                onChange={(e) => updatePreference('openAiApiKey', e.target.value)}
+                                placeholder="Required for OpenAI Whisper"
+                                className="setting-input"
+                                style={{ width: '100%', padding: '8px', marginTop: '8px', borderRadius: '4px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
+                            />
+                            <p className="setting-hint" style={{ fontSize: '0.8rem', color: '#888', marginTop: '4px' }}>
+                                Required for OpenAI Whisper transcription. Same key is used for advanced segment detection.
+                            </p>
+                        </div>
+                    )}
+
+                    {preferences.transcriptionProvider === 'assemblyai' && (
+                        <div className="setting-item">
+                            <label>OpenAI API Key (for Advanced Ad Detection)</label>
+                            <input
+                                type="password"
+                                value={preferences.openAiApiKey || ''}
+                                onChange={(e) => updatePreference('openAiApiKey', e.target.value)}
+                                placeholder="Leave empty to use default env key (for now)"
+                                className="setting-input"
+                                style={{ width: '100%', padding: '8px', marginTop: '8px', borderRadius: '4px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
+                            />
+                            <p className="setting-hint" style={{ fontSize: '0.8rem', color: '#888', marginTop: '4px' }}>
+                                Required for advanced AI-powered skippable segment detection. If not provided, the app will try to use the built-in API key (for now). This will stop working at some point.
+                            </p>
+                        </div>
+                    )}
+
                     <div className="setting-item">
-                        <label>OpenAI API Key (for Advanced Ad Detection)</label>
-                        <input
-                            type="password"
-                            value={preferences.openAiApiKey || ''}
-                            onChange={(e) => updatePreference('openAiApiKey', e.target.value)}
-                            placeholder="Leave empty to use default env key (for now)"
-                            className="setting-input"
-                            style={{ width: '100%', padding: '8px', marginTop: '8px', borderRadius: '4px', border: '1px solid #444', backgroundColor: '#222', color: '#fff' }}
-                        />
-                        <p className="setting-hint" style={{ fontSize: '0.8rem', color: '#888', marginTop: '4px' }}>
-                            Required for advanced AI-powered skippable segment detection. If not provided, the app will try to use the built-in API key (for now). This will stop working at some point.
+                        <label htmlFor="openai-model">OpenAI Model (for Advanced Detection)</label>
+                        <select
+                            id="openai-model"
+                            value={preferences.openAiModel || 'gpt-5-mini'}
+                            onChange={(e) => updatePreference('openAiModel', e.target.value as 'gpt-5-mini' | 'gpt-5-nano')}
+                        >
+                            <option value="gpt-5-mini">GPT-5 Mini (Upcoming - Fast & Cheap)</option>
+                            <option value="gpt-5-nano">GPT-5 Nano (Upcoming - Ultra Fast & Ultra Cheap)</option>
+                        </select>
+                        <p className="setting-description">
+                            Select which OpenAI model to use for advanced skippable segment detection. 
+                            GPT-4o Mini offers the best balance of speed, cost, and accuracy.
                         </p>
                     </div>
                 </section>

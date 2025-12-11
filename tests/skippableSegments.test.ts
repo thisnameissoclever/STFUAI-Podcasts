@@ -16,7 +16,7 @@ describe('Skippable Segment Detection', () => {
                 duration: 0,
                 createdAt: 0
             };
-            const result = detectBasicSegments(transcript);
+            const result = detectBasicSegments(transcript, 0);
             expect(result).toEqual([]);
         });
 
@@ -34,7 +34,7 @@ describe('Skippable Segment Detection', () => {
                 createdAt: 0
             };
 
-            const result = detectBasicSegments(transcript);
+            const result = detectBasicSegments(transcript, 30);
             expect(result).toHaveLength(1);
             expect(result[0].startTimeSeconds).toBe(10);
             expect(result[0].endTimeSeconds).toBe(20);
@@ -57,7 +57,7 @@ describe('Skippable Segment Detection', () => {
                 createdAt: 0
             };
 
-            const result = detectBasicSegments(transcript);
+            const result = detectBasicSegments(transcript, 40);
             expect(result).toHaveLength(1);
             expect(result[0].startTimeSeconds).toBe(10);
             expect(result[0].endTimeSeconds).toBe(30);
@@ -78,7 +78,7 @@ describe('Skippable Segment Detection', () => {
                 createdAt: 0
             };
 
-            const result = detectBasicSegments(transcript);
+            const result = detectBasicSegments(transcript, 40);
             expect(result).toHaveLength(2);
             expect(result[0].startTimeSeconds).toBe(10);
             expect(result[0].endTimeSeconds).toBe(20);
@@ -98,7 +98,7 @@ describe('Skippable Segment Detection', () => {
                 createdAt: 0
             };
 
-            const result = detectBasicSegments(transcript);
+            const result = detectBasicSegments(transcript, 10);
             expect(result).toHaveLength(1);
         });
     });

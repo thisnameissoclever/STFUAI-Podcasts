@@ -270,32 +270,36 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
             await db.saveTranscript(episodeId, transcript);
 
             // Auto-detect basic skippable segments (ads) using speaker labels
+            // NOTE: Only works with AssemblyAI transcripts (speaker diarization)
             try {
                 const { detectBasicSegments } = await import('../services/skippableSegments');
-                // Ensure we have a valid duration for validation.
-                // Priority: 1. Transcript duration (API - most accurate from file), 2. Episode duration (feed), 3. Last segment end time
-                let duration = transcript.duration;
+                const prefs = await db.getPreferences();
+                const provider = prefs.transcriptionProvider || 'assemblyai';
 
-                if (!duration) {
-                    duration = get().episodes[episodeId]?.duration;
-                }
+                // Only attempt basic detection if using AssemblyAI (has speaker labels)
+                if (provider === 'assemblyai') {
+                    // Ensure we have a valid duration for validation.
+                    // Priority: 1. Transcript duration (API - most accurate from file), 2. Episode duration (feed), 3. Last segment end time
+                    let duration = transcript.duration;
 
-                if (!duration && transcript.segments && transcript.segments.length > 0) {
-                    const lastSegment = transcript.segments[transcript.segments.length - 1];
-                    duration = lastSegment.end;
-                }
+                    if (!duration) {
+                        duration = get().episodes[episodeId]?.duration;
+                    }
 
-                // If still no duration, we can't effectively cap segments, but we should avoid 0 to prevent rejecting all segments.
-                // We'll use a safe fallback that effectively disables the "cap at duration" check if we absolutely cannot determine duration.
-                if (!duration) {
-                    console.warn('Could not determine episode duration for ad detection validation. Validation may be less strict.');
-                    duration = Number.MAX_SAFE_INTEGER;
-                }
-                const basicSegments = detectBasicSegments(transcript, duration);
+                    if (!duration && transcript.segments && transcript.segments.length > 0) {
+                        const lastSegment = transcript.segments[transcript.segments.length - 1];
+                        duration = lastSegment.end;
+                    }
 
-                if (basicSegments.length > 0) {
-                    console.log('Detected basic skippable segments:', basicSegments);
+                    // If still no duration, we can't effectively cap segments, but we should avoid 0 to prevent rejecting all segments.
+                    // We'll use a safe fallback that effectively disables the "cap at duration" check if we absolutely cannot determine duration.
+                    if (!duration) {
+                        console.warn('Could not determine episode duration for ad detection validation. Validation may be less strict.');
+                        duration = Number.MAX_SAFE_INTEGER;
+                    }
+                    const basicSegments = detectBasicSegments(transcript, duration);
 
+                    // Always save the result, even if empty, so UI knows basic detection ran
                     const updatedEpisodeWithAds = {
                         ...get().episodes[episodeId],
                         adSegments: basicSegments,
@@ -310,6 +314,14 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
                     }));
 
                     await db.saveEpisode(updatedEpisodeWithAds);
+
+                    if (basicSegments.length > 0) {
+                        console.log('Detected basic skippable segments:', basicSegments);
+                    } else {
+                        console.log('Basic detection ran but found no skippable segments. Use "Analyze" for advanced AI detection.');
+                    }
+                } else {
+                    console.log('[Transcription] Basic segment detection skipped (OpenAI Whisper does not provide speaker labels)');
                 }
             } catch (adError) {
                 console.warn('Failed to auto-detect basic segments:', adError);

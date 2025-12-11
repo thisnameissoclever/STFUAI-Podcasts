@@ -57,9 +57,17 @@ export const AdSegments: React.FC<AdSegmentsProps> = React.memo(({ episode }) =>
                 ) : (
                     <div className="empty-state">
                         <p className="empty-text">
-                            {episode.transcript
-                                ? (episode.adSegments ? 'No skippable segments detected in this episode.' : <>Click <span style={{ fontWeight: 600, backgroundColor: 'rgba(30, 215, 96, 0.1)', color: 'var(--accent-color)', borderRadius: '9999px', padding: '2px 8px', display: 'inline-block', verticalAlign: 'middle', fontSize: '0.9em' }}>Analyze</span> above to find skippable segments.</>)
-                                : 'Transcription required for segment detection.'}
+                            {!episode.transcript ? (
+                                'Transcription required for segment detection.'
+                            ) : episode.adDetectionType ? (
+                                // Detection has run (basic or advanced)
+                                episode.adDetectionType === 'basic' 
+                                    ? 'No segments found via basic detection. Click Analyze for AI-powered detection.' 
+                                    : 'No skippable segments detected in this episode.'
+                            ) : (
+                                // Detection has never run
+                                <>Click <span style={{ fontWeight: 600, backgroundColor: 'rgba(30, 215, 96, 0.1)', color: 'var(--accent-color)', borderRadius: '9999px', padding: '2px 8px', display: 'inline-block', verticalAlign: 'middle', fontSize: '0.9em' }}>Analyze</span> above to find skippable segments using AI.</>
+                            )}
                         </p>
                     </div>
                 )}

@@ -10,6 +10,10 @@ vi.mock('../src/services/db', () => ({
         saveEpisode: vi.fn(),
         getPodcasts: vi.fn().mockResolvedValue({}),
         getEpisodes: vi.fn().mockResolvedValue({}),
+        getPreferences: vi.fn().mockResolvedValue({
+            transcriptionProvider: 'assemblyai',
+            compressionQuality: 16,
+        }),
     }
 }));
 

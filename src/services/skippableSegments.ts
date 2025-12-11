@@ -124,6 +124,7 @@ export async function detectAdvancedSegments(episode: Episode): Promise<AdSegmen
     const { db } = await import('./db');
     const prefs = await db.getPreferences();
     const apiKey = prefs.openAiApiKey || import.meta.env.VITE_OPENAI_API_KEY || '';
+    const model = prefs.openAiModel || 'gpt-5-mini';
 
     if (!apiKey) {
         throw new Error('API key is required for advanced ad detection. Please check your settings.');
@@ -147,14 +148,11 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
 
     try {
         const payload = {
-            //model: 'gpt-4o', //Not great, and costs more... why in the world?
-            model: 'gpt-5.1', //gpt-5.1 is the latest valid model that seems to work well. 
+            model: model,
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userContent }
             ],
-            verbosity: 'medium',
-            reasoning_effort: 'none',
             temperature: 0.1
         };
 

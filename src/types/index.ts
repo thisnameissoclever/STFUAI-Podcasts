@@ -43,6 +43,7 @@ export interface Transcript {
     language: string;
     duration: number;
     createdAt: number; // timestamp
+    rawVerboseJson?: string; // Raw verbose_json response from OpenAI Whisper (optional)
 }
 
 export interface Episode {
@@ -91,8 +92,9 @@ export interface AdSegment {
     description: string;
 }
 
-export type TranscriptionProvider = 'whisper' | 'google' | 'assemblyai';
+export type TranscriptionProvider = 'assemblyai' | 'openai-whisper';
 export type CompressionQuality = 0 | 16 | 32 | 64 | 96 | 128; // kbps (0 = no compression, use original file)
+export type OpenAIModel = 'gpt-5-mini' | 'gpt-5-nano';
 
 export interface UserPreferences {
     playbackSpeed: number;
@@ -107,6 +109,7 @@ export interface UserPreferences {
     refreshIntervalMinutes: number;
     assemblyAiApiKey?: string;
     openAiApiKey?: string;
+    openAiModel: OpenAIModel;
     includePrereleases: boolean;
 }
 export interface UserSession {

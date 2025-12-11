@@ -116,7 +116,12 @@ export const PodcastDetail: React.FC = () => {
                 <h2 className="section-title">Episodes</h2>
                 <div className="episodes-list">
                     {episodes.map((ep) => (
-                        <div key={ep.id} className={clsx("episode-item group", ep.isPlayed && "opacity-60")}>
+                        <div 
+                            key={ep.id} 
+                            className={clsx("episode-item group", ep.isPlayed && "opacity-60")}
+                            onClick={() => !isDownloading(ep.id) && play(ep)}
+                            style={{ cursor: isDownloading(ep.id) ? 'default' : 'pointer' }}
+                        >
                             <div className="episode-content">
                                 <div className="episode-main">
                                     <div className="episode-date" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -132,7 +137,7 @@ export const PodcastDetail: React.FC = () => {
                                     </h3>
                                     <div className="episode-description" dangerouslySetInnerHTML={{ __html: ep.description }} />
 
-                                    <div className="episode-actions">
+                                    <div className="episode-actions" onClick={(e) => e.stopPropagation()}>
                                         <button
                                             onClick={() => play(ep)}
                                             disabled={isDownloading(ep.id)}
