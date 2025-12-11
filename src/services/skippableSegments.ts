@@ -146,16 +146,28 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
 `;
 
     try {
+    
+        // const payload = {
+        //     //model: 'gpt-4o', //Not great, and costs more... why in the world?
+        //     //gpt-5.1 is the latest valid model that seems to work well.
+        //     model: 'gpt-5.1', 
+        //     messages: [
+        //         { role: 'system', content: systemPrompt },
+        //         { role: 'user', content: userContent }
+        //     ],
+        //     verbosity: 'low',
+        //     reasoning_effort: 'low',
+        //     //temperature: 0.1
+        // };
+
         const payload = {
-            //model: 'gpt-4o', //Not great, and costs more... why in the world?
-            model: 'gpt-5.1', //gpt-5.1 is the latest valid model that seems to work well. 
+            model: 'gpt-5-mini', //Model does not support temp or "none" reasoning effort.
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userContent }
             ],
-            verbosity: 'medium',
-            reasoning_effort: 'none',
-            temperature: 0.1
+            verbosity: 'low',
+            reasoning_effort: 'low'
         };
 
         console.log('[AI] Detecting skippable segments with payload:');

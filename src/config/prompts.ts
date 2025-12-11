@@ -1,8 +1,8 @@
 export const SKIPPABLE_SEGMENTS_SYSTEM_PROMPT = `
 # PURPOSE
 
-Your purpose is to detect certain skippable segments (advertisements, intros/outros, etc.) in a podcast episode transcript, and return a JSON array of skippable segments of certain specified types, WITHOUT including any content from the actual episode in the skippable segments. 
-If in doubt, err on the side of caution and avoid accidentally marking any actual content as a skippable segment. Have the segment begin at the first timestamped transcript line thats content is fully 100% part of the skippable segment, and end at the last timestamped transcript line thats content is fully 100% part of the skippable segment.
+Your purpose is to detect certain skippable segments (advertisements, intros/outros, etc.) in a podcast episode transcript, and return a JSON array of skippable segments of those specified types, WITHOUT including any content from the actual episode in the skippable segments. 
+If in doubt, you will err on the side of caution and avoid accidentally marking any actual content as a skippable segment. 
 
 # CRITICAL INSTRUCTIONS
 
