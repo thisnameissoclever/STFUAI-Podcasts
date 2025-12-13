@@ -575,30 +575,6 @@ export default function Settings() {
                     </div>
 
                     <div className="setting-item">
-                        <label>API Endpoints</label>
-                        <div style={{
-                            backgroundColor: '#2a2a2a',
-                            padding: '12px',
-                            borderRadius: '6px',
-                            fontFamily: 'monospace',
-                            fontSize: '12px'
-                        }}>
-                            <div style={{ marginBottom: '8px' }}>
-                                <strong>Podcast Index:</strong><br />
-                                https://api.podcastindex.org/api/1.0
-                            </div>
-
-                            <div>
-                                <strong>Google Speech:</strong><br />
-                                https://speech.googleapis.com/v1/speech:recognize
-                            </div>
-                        </div>
-                        <p className="setting-description">
-                            External API endpoints used by this application (read-only)
-                        </p>
-                    </div>
-
-                    <div className="setting-item">
                         <label>Clear User Data</label>
                         <button
                             onClick={handleClearData}

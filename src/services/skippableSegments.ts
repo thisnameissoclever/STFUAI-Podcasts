@@ -287,8 +287,17 @@ export function validateAndMitigateSegments(segments: AdSegment[], episodeDurati
 
     // 2. Filter Short Segments (Pre-overlap check)
     validSegments = validSegments.filter(seg => {
-        if (seg.endTimeSeconds - seg.startTimeSeconds < 2) {
-            console.info(`[Validation] Segment too short (<2s): ${seg.startTime} - ${seg.endTime}. Ignoring.`);
+        const duration = seg.endTimeSeconds - seg.startTimeSeconds;
+
+        // Advertisements must be at least 8 seconds
+        if (seg.type === 'advertisement' && duration < 8) {
+            console.debug(`[Validation] Advertisement too short (<8s): ${seg.startTime} - ${seg.endTime}. Ignoring.`);
+            return false;
+        }
+
+        // All other types must be at least 3 seconds
+        if (duration < 3) {
+            console.debug(`[Validation] Skippable segment too short (<3s): ${seg.startTime} - ${seg.endTime}. Ignoring.`);
             return false;
         }
         return true;
