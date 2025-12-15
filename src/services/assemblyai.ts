@@ -1,14 +1,14 @@
 import axios from 'axios';
 import type { Transcript, TranscriptSegment, TranscriptWord, CompressionQuality } from '../types';
+import { getSecureValue, SECURE_KEYS } from './secureStorage';
 
-const DEFAULT_API_KEY = import.meta.env.VITE_ASSEMBLYAI_API_KEY || '';
 const BASE_URL = 'https://api.assemblyai.com/v2';
 
 /**
  * Transcribe an episode using AssemblyAI API
  * @param filename The downloaded filename (e.g., "12345.mp3")
  * @param episodeId The episode ID
- * @param apiKeyOverride Optional API key to use instead of env var
+ * @param apiKeyOverride Optional API key to use instead of secure storage
  * @param compressionQuality Bitrate for compression (0 = no compression, use original)
  */
 export async function transcribeEpisode(
@@ -17,9 +17,16 @@ export async function transcribeEpisode(
     apiKeyOverride?: string,
     compressionQuality: CompressionQuality = 16
 ): Promise<Transcript> {
-    const apiKey = apiKeyOverride || DEFAULT_API_KEY;
+    // Priority: 1) Override, 2) Secure storage, 3) Dev-only env fallback
+    let apiKey = apiKeyOverride;
     if (!apiKey) {
-        throw new Error('AssemblyAI API key is missing. Please check your settings or .env file.');
+        apiKey = await getSecureValue(SECURE_KEYS.ASSEMBLYAI_API_KEY) || '';
+    }
+    if (!apiKey && import.meta.env.DEV) {
+        apiKey = import.meta.env.VITE_ASSEMBLYAI_API_KEY || '';
+    }
+    if (!apiKey) {
+        throw new Error('AssemblyAI API key is missing. Please add your API key in Settings.');
     }
 
     const headers = {

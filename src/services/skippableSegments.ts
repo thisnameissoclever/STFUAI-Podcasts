@@ -128,11 +128,20 @@ export async function detectAdvancedSegments(episode: Episode): Promise<AdSegmen
     }
 
     const { db } = await import('./db');
+    const { getSecureValue, SECURE_KEYS } = await import('./secureStorage');
     const prefs = await db.getPreferences();
-    const apiKey = prefs.openRouterApiKey || import.meta.env.VITE_OPENROUTER_TOKEN || '';
+
+    // Priority: 1) User's custom key, 2) Secure storage, 3) Bundled env var
+    let apiKey = prefs.openRouterApiKey;
+    if (!apiKey) {
+        apiKey = await getSecureValue(SECURE_KEYS.OPENROUTER_API_KEY) || '';
+    }
+    if (!apiKey) {
+        apiKey = import.meta.env.VITE_OPENROUTER_TOKEN || '';
+    }
 
     if (!apiKey) {
-        throw new Error('OpenRouter API key is required for advanced ad detection. Please check your settings.');
+        throw new Error('OpenRouter API key is required for advanced ad detection. Please add your API key in Settings.');
     }
 
     // Get model configuration
