@@ -1,5 +1,6 @@
 import type { Transcript, AdSegment, Episode, LLMModelConfig, LLMModelId } from '../types';
 import { SKIPPABLE_SEGMENTS_SYSTEM_PROMPT } from '../config/prompts';
+import { parseAISegmentResponse } from './aiResponseParser';
 
 const API_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -15,36 +16,6 @@ export const LLM_MODELS: LLMModelConfig[] = [
 ];
 
 export const DEFAULT_LLM_MODEL: LLMModelId = 'google/gemini-2.5-flash';
-
-interface AIAdSegment {
-    startTime: string;
-    endTime: string;
-    confidence: number;
-    type: 'advertisement' | 'self-promotion' | 'intro/outro' | 'closing credits';
-    description: string;
-}
-
-/**
- * Sanitize JSON string to fix unquoted time values.
- * Sometimes the AI returns times like 15:10 without quotes, which breaks JSON.parse().
- * This function detects patterns like `: 15:10` or `: 1:23:45` and wraps them in quotes.
- */
-function sanitizeJsonTimestamps(jsonStr: string): string {
-    // Match a colon (property separator) followed by optional whitespace,
-    // then an unquoted time pattern (M:SS, MM:SS, H:MM:SS, or HH:MM:SS),
-    // followed by a comma, closing brace, or end of line.
-    // The negative lookbehind (?<!") ensures we don't match already-quoted values.
-    // The negative lookahead (?!") ensures there's no closing quote immediately after.
-    const unquotedTimePattern = /:\s*(?<!")(\d{1,2}:\d{2}(?::\d{2})?)(?!")(\s*[,}\]])/g;
-
-    const sanitized = jsonStr.replace(unquotedTimePattern, ': "$1"$2');
-
-    if (sanitized !== jsonStr) {
-        console.warn('[AI] Detected and fixed unquoted time values in JSON response');
-    }
-
-    return sanitized;
-}
 
 /**
  * Parse time string (MM:SS or HH:MM:SS) to seconds
@@ -245,13 +216,11 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
             }
         }
 
-        // Sanitize the JSON to fix any unquoted time values before parsing
-        jsonStr = sanitizeJsonTimestamps(jsonStr);
-
-        const rawSegments: AIAdSegment[] = JSON.parse(jsonStr);
+        // Parse, sanitize, and validate the AI response
+        const validatedSegments = parseAISegmentResponse(jsonStr);
 
         // Convert to internal AdSegment format with seconds
-        const segments = rawSegments.map(seg => {
+        const segments = validatedSegments.map(seg => {
             const startTimeSeconds = parseTime(seg.startTime);
             const endTimeSeconds = parseTime(seg.endTime);
 

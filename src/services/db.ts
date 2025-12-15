@@ -24,7 +24,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
     theme: 'dark',
     volume: 0.65,
     transcriptionProvider: 'assemblyai',
-    compressionQuality: 16,
+    compressionQuality: 0,
     autoPlayNext: true,
     skipForwardSeconds: 30,
     skipBackwardSeconds: 20,
