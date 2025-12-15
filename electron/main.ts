@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, protocol, net, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, protocol, net, shell, safeStorage } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
@@ -275,6 +275,90 @@ ipcMain.handle('clear-all-data', async () => {
 
 ipcMain.handle('open-storage-folder', async () => {
   await shell.openPath(PODCAST_DIR);
+});
+
+// Secure API key storage using OS-level encryption
+const SECURE_KEYS_FILE = path.join(app.getPath('userData'), 'secure-keys.enc');
+
+ipcMain.handle('secure-storage-available', () => {
+  return safeStorage.isEncryptionAvailable();
+});
+
+ipcMain.handle('secure-storage-set', async (_, key: string, value: string) => {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('Secure storage is not available on this system');
+  }
+
+  try {
+    // Read existing keys or start fresh
+    let keys: Record<string, string> = {};
+    if (fs.existsSync(SECURE_KEYS_FILE)) {
+      const encrypted = await fs.promises.readFile(SECURE_KEYS_FILE);
+      const decrypted = safeStorage.decryptString(encrypted);
+      keys = JSON.parse(decrypted);
+    }
+
+    // Update the key
+    keys[key] = value;
+
+    // Encrypt and save
+    const encrypted = safeStorage.encryptString(JSON.stringify(keys));
+    await fs.promises.writeFile(SECURE_KEYS_FILE, encrypted);
+
+    console.log(`[SecureStorage] Saved key: ${key}`);
+    return true;
+  } catch (error) {
+    console.error('[SecureStorage] Failed to save key:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('secure-storage-get', async (_, key: string) => {
+  if (!safeStorage.isEncryptionAvailable()) {
+    return null;
+  }
+
+  try {
+    if (!fs.existsSync(SECURE_KEYS_FILE)) {
+      return null;
+    }
+
+    const encrypted = await fs.promises.readFile(SECURE_KEYS_FILE);
+    const decrypted = safeStorage.decryptString(encrypted);
+    const keys = JSON.parse(decrypted);
+
+    return keys[key] || null;
+  } catch (error) {
+    console.error('[SecureStorage] Failed to read key:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('secure-storage-delete', async (_, key: string) => {
+  if (!safeStorage.isEncryptionAvailable()) {
+    return false;
+  }
+
+  try {
+    if (!fs.existsSync(SECURE_KEYS_FILE)) {
+      return true;
+    }
+
+    const encrypted = await fs.promises.readFile(SECURE_KEYS_FILE);
+    const decrypted = safeStorage.decryptString(encrypted);
+    const keys = JSON.parse(decrypted);
+
+    delete keys[key];
+
+    const newEncrypted = safeStorage.encryptString(JSON.stringify(keys));
+    await fs.promises.writeFile(SECURE_KEYS_FILE, newEncrypted);
+
+    console.log(`[SecureStorage] Deleted key: ${key}`);
+    return true;
+  } catch (error) {
+    console.error('[SecureStorage] Failed to delete key:', error);
+    return false;
+  }
 });
 
 // Auto-updater

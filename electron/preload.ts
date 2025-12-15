@@ -23,4 +23,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('update-status', subscription);
         return () => ipcRenderer.removeListener('update-status', subscription);
     },
+    // Secure storage for API keys (uses OS-level encryption)
+    secureStorageAvailable: () => ipcRenderer.invoke('secure-storage-available'),
+    secureStorageSet: (key: string, value: string) => ipcRenderer.invoke('secure-storage-set', key, value),
+    secureStorageGet: (key: string) => ipcRenderer.invoke('secure-storage-get', key),
+    secureStorageDelete: (key: string) => ipcRenderer.invoke('secure-storage-delete', key),
 });
+

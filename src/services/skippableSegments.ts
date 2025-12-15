@@ -297,6 +297,27 @@ export function validateAndMitigateSegments(segments: AdSegment[], episodeDurati
         return true;
     });
 
+    // 3. Filter by Confidence Threshold (2a)
+    const CONFIDENCE_THRESHOLD = 60;
+    const beforeConfidenceFilter = validSegments.length;
+    validSegments = validSegments.filter(seg => {
+        if (seg.confidence < CONFIDENCE_THRESHOLD) {
+            console.info(`[Validation] Segment below confidence threshold (${seg.confidence}% < ${CONFIDENCE_THRESHOLD}%): ${seg.startTime} - ${seg.endTime}. Ignoring.`);
+            return false;
+        }
+        return true;
+    });
+    if (beforeConfidenceFilter > validSegments.length) {
+        console.info(`[Validation] Filtered out ${beforeConfidenceFilter - validSegments.length} low-confidence segments`);
+    }
+
+    // 4. Sanity Check: Unusual Segment Count (2d)
+    // Most podcasts have 3-8 skippable segments. More than 15 is suspicious.
+    const MAX_EXPECTED_SEGMENTS = 15;
+    if (validSegments.length > MAX_EXPECTED_SEGMENTS) {
+        console.warn(`[Validation] Unusually high segment count (${validSegments.length} > ${MAX_EXPECTED_SEGMENTS}). This may indicate detection issues.`);
+    }
+
     // 3. Handle Overlaps
     // Sort by start time to make overlap detection easier
     validSegments.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
