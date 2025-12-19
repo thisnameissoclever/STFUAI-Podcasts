@@ -1,6 +1,20 @@
 import { describe, it, expect, vi } from 'vitest';
-import { detectBasicSegments, detectAdvancedSegments } from '../src/services/skippableSegments';
+import { detectBasicSegments, detectAdvancedSegments, DEFAULT_LLM_MODEL } from '../src/services/skippableSegments';
 import type { Transcript, Episode } from '../src/types';
+// Mock db and secureStorage
+vi.mock('../src/services/db', () => ({
+    db: {
+        getPreferences: vi.fn().mockResolvedValue({
+            openRouterApiKey: 'test-api-key',
+            activeModel: DEFAULT_LLM_MODEL
+        })
+    }
+}));
+
+vi.mock('../src/services/secureStorage', () => ({
+    getSecureValue: vi.fn().mockResolvedValue('test-api-key'),
+    SECURE_KEYS: { OPENROUTER_API_KEY: 'OPENROUTER_API_KEY' }
+}));
 
 // Mock fetch for OpenAI
 global.fetch = vi.fn();

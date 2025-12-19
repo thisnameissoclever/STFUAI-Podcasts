@@ -27,6 +27,19 @@ function App() {
       await usePodcastStore.getState().loadSubscriptions();
       await usePodcastStore.getState().loadEpisodes();
 
+      // Apply theme preference on startup
+      const prefs = await db.getPreferences();
+      if (prefs?.theme) {
+        document.documentElement.setAttribute('data-theme', prefs.theme);
+        if (prefs.theme === 'light') {
+          document.body.style.backgroundColor = '#ffffff';
+          document.body.style.color = '#000000';
+        } else {
+          document.body.style.backgroundColor = '#1a1a1a';
+          document.body.style.color = '#ffffff';
+        }
+      }
+
       // Verify files exist for currently-playing episode and queue before continuing
       // This ensures missing files are recovered before playback can fail
       const { verifyAndRecoverEpisodes } = await import('./services/episodeRecovery');

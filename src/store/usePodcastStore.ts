@@ -341,12 +341,12 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
             const { detectAdvancedSegments } = await import('../services/skippableSegments');
             console.log('Starting advanced skippable segment detection for episode:', episodeId);
 
-            const adSegments = await detectAdvancedSegments(episode);
-            console.log('Ad detection completed:', adSegments);
+            const skippableSegments = await detectAdvancedSegments(episode);
+            console.log('Skippable segment detection completed:', skippableSegments);
 
             const updatedEpisode = {
                 ...episode,
-                adSegments,
+                adSegments: skippableSegments,
                 adDetectionType: 'advanced' as const
             };
 

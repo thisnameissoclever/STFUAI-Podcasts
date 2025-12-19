@@ -3,6 +3,7 @@ import { db } from '../services/db';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { setDebugEnabled } from '../utils/logger';
 import { LLM_MODELS, DEFAULT_LLM_MODEL } from '../services/skippableSegments';
+import { SettingsToast } from '../components/SettingsToast';
 import type { UserPreferences, CompressionQuality, LLMModelId, ReasoningEffort } from '../types';
 
 export default function Settings() {
@@ -117,6 +118,9 @@ export default function Settings() {
             usePlayerStore.getState().setPlaybackRate(value as number);
             usePlayerStore.getState().setDefaultPlaybackRate(value as number);
         }
+        if (key === 'volume') {
+            usePlayerStore.getState().setVolume(value as number);
+        }
 
         // Show saved indicator
         setSaved(true);
@@ -140,8 +144,8 @@ export default function Settings() {
         <div className="settings-page">
             <div className="settings-header">
                 <h1>Settings</h1>
-                {saved && <span className="save-indicator" style={{ color: '#4ade80', fontWeight: 'bold' }}>✓ Saved!</span>}
             </div>
+            <SettingsToast visible={saved} />
 
             <div className="settings-sections">
                 {/* General Settings */}

@@ -1314,3 +1314,15 @@ body {
 .settings-actions .btn-primary:active {
   transform: scale(0.98);
 }
+
+/* Settings Toast Animation */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}

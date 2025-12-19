@@ -1,6 +1,7 @@
 import type { Transcript, AdSegment, Episode, LLMModelConfig, LLMModelId } from '../types';
 import { SKIPPABLE_SEGMENTS_SYSTEM_PROMPT } from '../config/prompts';
 import { parseAISegmentResponse } from './aiResponseParser';
+import { preprocessTranscript } from './transcriptPreprocessor';
 
 const API_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -160,8 +161,8 @@ ${episode.title}
 PODCAST EPISODE LENGTH (in seconds):
 ${episode.transcript.duration}
 
-EPISODE TRANSCRIPT WITH TIME-CODES: 
-${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` (${s.speaker}):` : ''} ${s.text}`).join('\n')}
+EPISODE TRANSCRIPT WITH INLINE TIME-CODES [MM:SS]: 
+${preprocessTranscript(episode.transcript)}
 `;
 
     try {
@@ -186,9 +187,13 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
             effort: reasoningEffort,
             exclude: true // Don't return reasoning text in the response
         };
-
+        
         console.log('[AI] Detecting skippable segments via OpenRouter');
         console.log(`[AI] Model: ${selectedModelId}, Temperature: ${payload.temperature ?? 'N/A'}, Reasoning: ${reasoningEffort}`);
+
+        if (prefs.debugLogsEnabled) {
+            console.debug('[AI] OpenRouter Request Payload:', payload);
+        }
 
         const response = await fetch(API_ENDPOINT, {
             method: 'POST',
@@ -250,6 +255,69 @@ ${episode.transcript.segments.map(s => `[${formatTime(s.start)}]${s.speaker ? ` 
         console.error('[AI] Skippable segment detection failed:', error);
         throw error;
     }
+}
+
+
+/**
+ * Merges advertisement segments that are close together (< 8 seconds apart).
+ * This prevents fragmented ad blocks from being displayed as separate segments.
+ * 
+ * Rules:
+ * - Only merges segments where BOTH are type='advertisement'.
+ * - Merges if gap between segments is < 8 seconds.
+ * - merging logic handles overlaps as well (gap < 0).
+ */
+export function mergeCloseAdSegments(segments: AdSegment[]): AdSegment[] {
+    if (segments.length <= 1) return segments;
+
+    // Create a copy to avoid mutating inputs during processing
+    // Note: Caller is expected to pass sorted segments, but we sort again to be safe.
+    const sorted = [...segments].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
+    const merged: AdSegment[] = [];
+
+    let current = sorted[0];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const next = sorted[i];
+
+        // Check if both are advertisements (SPECIFICALLY advertisements, per rules)
+        const isAdSequence = current.type === 'advertisement' && next.type === 'advertisement';
+
+        // Calculate gap (next start - current end)
+        // If they overlap, gap is negative, which is < 8, so they merge.
+        const gap = next.startTimeSeconds - current.endTimeSeconds;
+
+        if (isAdSequence && gap < 8) {
+            // Merge them
+            // Use maximum end time (in case nested/overlap)
+            const newEndSeconds = Math.max(current.endTimeSeconds, next.endTimeSeconds);
+
+            // Combine descriptions if specific enough, otherwise keep simple
+            let newDesc = current.description;
+            // Only append if it's not a duplicate description
+            if (next.description && next.description !== current.description && !newDesc.includes(next.description)) {
+                newDesc += ' | ' + next.description;
+            }
+
+            console.info(`[Validation] Merging close ad segments (<8s gap): [${current.startTime}-${current.endTime}] + [${next.startTime}-${next.endTime}]`);
+
+            current = {
+                ...current,
+                endTimeSeconds: newEndSeconds,
+                endTime: formatTime(newEndSeconds),
+                description: newDesc,
+                // Take the higher confidence of the two
+                confidence: Math.max(current.confidence, next.confidence)
+            };
+        } else {
+            // Push current and start new
+            merged.push(current);
+            current = next;
+        }
+    }
+    merged.push(current);
+
+    return merged;
 }
 
 /**
@@ -327,9 +395,12 @@ export function validateAndMitigateSegments(segments: AdSegment[], episodeDurati
         console.warn(`[Validation] Unusually high segment count (${validSegments.length} > ${MAX_EXPECTED_SEGMENTS}). This may indicate detection issues.`);
     }
 
-    // 3. Handle Overlaps
+    // 3. Handle Overlaps & Merge Close Ads
     // Sort by start time to make overlap detection easier
     validSegments.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
+
+    // Merge close advertisement segments (<8s gap) BEFORE general overlap resolution
+    validSegments = mergeCloseAdSegments(validSegments);
 
     const mitigatedSegments: AdSegment[] = [];
 
