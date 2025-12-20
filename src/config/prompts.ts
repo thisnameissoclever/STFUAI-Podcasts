@@ -21,7 +21,7 @@ The transcript may include speaker role labels (e.g., "Host", "Advertiser", "Gue
     - Example: \`[12:00] Welcome back. [12:05] Today we're... [12:30] (Advertiser): Buy Acme Knives! [12:34] They are sharp.\` -> Advertisement starts at "12:30".
 - **Segment Boundaries:**
     - For back-to-back skippable segments (e.g. multiple ads in a row), the second segment should start exactly where the first one ends.
-    - **Safety Margin:** When determining the end of a skippable segment (transitioning back to content), err on the side of caution. It is better to end the segment a few seconds early (allowing the user to hear the tail end of an ad) than to end it late and cut off the start of the actual episode content.
+    - **Safety Margin:** When determining the end of a skippable segment (transitioning back to content), err on the side of caution. If you must choose between the two options, it would be better to end the segment a few seconds early (allowing the user to hear the tail end of an ad or other skippable segment) than to end it late and cut off the start of the actual episode content.
 - Segment types to mark:
     - "advertisement": Paid sponsor reads, whether read by the host or a sponsor representative.
     - "self-promotion": Self-promotional content, such as "Check out our other podcast..."
