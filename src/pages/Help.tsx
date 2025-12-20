@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, Play, Sparkles, Settings as SettingsIcon, Zap } from 'lucide-react';
+import { ExternalLink, Sparkles, Settings as SettingsIcon, Zap } from 'lucide-react';
 
 export const Help: React.FC = () => {
     const scrollToSection = (id: string) => {
