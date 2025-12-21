@@ -22,7 +22,7 @@ export async function transcribeEpisode(
     if (!apiKey) {
         apiKey = await getSecureValue(SECURE_KEYS.ASSEMBLYAI_API_KEY) || '';
     }
-    if (!apiKey && import.meta.env.DEV) {
+    if (!apiKey) {
         apiKey = import.meta.env.VITE_ASSEMBLYAI_API_KEY || '';
     }
     if (!apiKey) {
