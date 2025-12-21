@@ -509,6 +509,21 @@ app.whenReady().then(() => {
 
   createWindow();
 
+  // Initial update check (delayed to not impact startup)
+  setTimeout(() => {
+    console.log('[AutoUpdater] Triggering initial background check...');
+    silentCheckInProgress = true;
+    autoUpdater.checkForUpdates().catch(e => console.error('[AutoUpdater] Initial check failed:', e)).finally(() => silentCheckInProgress = false);
+  }, 10000);
+
+  // Scheduled check every hour
+  const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour
+  setInterval(() => {
+    console.log('[AutoUpdater] Triggering scheduled background check...');
+    silentCheckInProgress = true;
+    autoUpdater.checkForUpdates().catch(e => console.error('[AutoUpdater] Scheduled check failed:', e)).finally(() => silentCheckInProgress = false);
+  }, UPDATE_CHECK_INTERVAL);
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
