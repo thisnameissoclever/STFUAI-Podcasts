@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { Podcast, Episode } from '../types';
 import { db } from '../services/db';
+import {
+    pushSubscription,
+    deleteSubscription,
+    isCloudSyncAvailable,
+} from '../services/cloudSync';
 
 interface PodcastState {
     subscriptions: Record<number, Podcast>;
@@ -73,6 +78,17 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
             set((state) => ({
                 subscriptions: { ...state.subscriptions, [podcast.id]: podcastWithSettings }
             }));
+
+            // Sync with cloud (non-blocking, fire-and-forget)
+            isCloudSyncAvailable().then(available => {
+                if (available) {
+                    pushSubscription({
+                        feed_url: podcast.url,
+                        title: podcast.title,
+                        image_url: podcast.image || '',
+                    }).catch(err => console.error('[PodcastStore] Cloud sync failed:', err));
+                }
+            });
         } catch (error) {
             console.error('Failed to subscribe:', error);
         }
@@ -80,12 +96,25 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
 
     unsubscribe: async (id: number) => {
         try {
+            // Get podcast info before deleting (need feed URL for cloud sync)
+            const podcast = get().subscriptions[id];
+
             await db.removePodcast(id);
             set((state) => {
                 const next = { ...state.subscriptions };
                 delete next[id];
                 return { subscriptions: next };
             });
+
+            // Sync with cloud (non-blocking)
+            if (podcast?.url) {
+                isCloudSyncAvailable().then(available => {
+                    if (available) {
+                        deleteSubscription(podcast.url)
+                            .catch(err => console.error('[PodcastStore] Cloud sync delete failed:', err));
+                    }
+                });
+            }
         } catch (error) {
             console.error('Failed to unsubscribe:', error);
         }
@@ -244,91 +273,63 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
         }));
 
         try {
-            const { transcribeEpisode: transcribe } = await import('../services/transcription');
+            const { processEpisodeInCloud } = await import('../services/cloudApi');
             const filename = `${episodeId}.mp3`;
 
-            console.log('Starting transcription for episode:', episodeId, force ? '(FORCED)' : '');
-            const transcript = await transcribe(filename, episodeId);
-            console.log('Transcription completed:', transcript);
+            console.log('Starting cloud transcription for episode:', episodeId, force ? '(FORCED)' : '');
 
-            // Debug: Compare transcript duration vs RSS feed duration
-            console.log(`[Duration Debug] Transcript duration: ${transcript.duration}, RSS feed duration: ${get().episodes[episodeId]?.duration}`);
+            // Read the file for upload - use filename only, not full path
+            // (readFile IPC handler prepends the podcast directory)
+            const fileBuffer = await window.electronAPI!.readFile(filename);
+
+            // Process in cloud - this returns both transcript AND detected segments
+            const results = await processEpisodeInCloud(
+                fileBuffer,
+                filename,
+                {
+                    feedId: episode.feedId,
+                    guid: episode.guid,
+                    title: episode.title,
+                    durationSeconds: episode.duration
+                },
+                (status) => {
+                    console.log(`[Cloud] Status: ${status.status} (${status.progress || 0}%)`);
+                }
+            );
+
+            // Build transcript from cloud results
+            const transcript = {
+                episodeId,
+                text: results.transcript.text,
+                segments: results.transcript.segments,
+                language: results.transcript.language,
+                duration: results.transcript.duration,
+                createdAt: Date.now()
+            };
+
+            console.log('Cloud transcription completed:', transcript.duration, 'seconds');
+
+            // Update state with transcript AND segments from cloud
+            const updatedEpisode = {
+                ...get().episodes[episodeId],
+                transcript,
+                transcriptionStatus: 'completed' as const,
+                duration: transcript.duration || get().episodes[episodeId].duration,
+                adSegments: results.detectedSegments,
+                adDetectionType: results.detectionMethod
+            };
 
             set((state) => ({
                 episodes: {
                     ...state.episodes,
-                    [episodeId]: {
-                        ...state.episodes[episodeId],
-                        transcript,
-                        transcriptionStatus: 'completed',
-                        // Update episode duration with actual file duration from transcript
-                        duration: transcript.duration || state.episodes[episodeId].duration
-                    }
+                    [episodeId]: updatedEpisode
                 }
             }));
 
             await db.saveTranscript(episodeId, transcript);
+            await db.saveEpisode(updatedEpisode);
 
-            // Auto-detect basic skippable segments (ads) using speaker labels
-            try {
-                const { detectBasicSegments } = await import('../services/skippableSegments');
-                // Ensure we have a valid duration for validation.
-                // Priority: 1. Transcript duration (API - most accurate from file), 2. Episode duration (feed), 3. Last segment end time
-                let duration = transcript.duration;
-
-                if (!duration) {
-                    duration = get().episodes[episodeId]?.duration;
-                }
-
-                if (!duration && transcript.segments && transcript.segments.length > 0) {
-                    const lastSegment = transcript.segments[transcript.segments.length - 1];
-                    duration = lastSegment.end;
-                }
-
-                // If still no duration, we can't effectively cap segments, but we should avoid 0 to prevent rejecting all segments.
-                // We'll use a safe fallback that effectively disables the "cap at duration" check if we absolutely cannot determine duration.
-                if (!duration) {
-                    console.warn('Could not determine episode duration for ad detection validation. Validation may be less strict.');
-                    duration = Number.MAX_SAFE_INTEGER;
-                }
-                const basicSegments = detectBasicSegments(transcript, duration);
-
-                if (basicSegments.length > 0) {
-                    console.log('Detected basic skippable segments:', basicSegments);
-
-                    const updatedEpisodeWithAds = {
-                        ...get().episodes[episodeId],
-                        adSegments: basicSegments,
-                        adDetectionType: 'basic' as const
-                    };
-
-                    set((state) => ({
-                        episodes: {
-                            ...state.episodes,
-                            [episodeId]: updatedEpisodeWithAds
-                        }
-                    }));
-
-                    await db.saveEpisode(updatedEpisodeWithAds);
-                }
-            } catch (adError) {
-                console.warn('Failed to auto-detect basic segments:', adError);
-                // Don't fail the whole transcription if ad detection fails
-            }
-
-            // Auto-detect advanced segments if enabled
-            try {
-                const prefs = await db.getPreferences();
-                if (prefs.autoDetectSkippables !== false) { // Default to true
-                    console.log('Automatic advanced skippable segment detection enabled, triggering...');
-                    // We can call the store method directly
-                    get().detectAds(episodeId);
-                } else {
-                    console.log('Automatic advanced skippable segment detection is disabled.');
-                }
-            } catch (e) {
-                console.error('Failed to trigger automatic advanced detection:', e);
-            }
+            console.log(`Cloud processing complete: ${results.detectedSegments.length} skippable segments detected`);
 
         } catch (error) {
             console.error('Failed to transcribe episode:', error);
@@ -345,36 +346,14 @@ export const usePodcastStore = create<PodcastState>((set, get) => ({
     },
 
     detectAds: async (episodeId: number) => {
+        // Cloud backend now handles advanced detection during transcription
+        // This function is kept for legacy compatibility but does nothing now
+        console.log('[detectAds] Advanced detection is now handled by cloud backend during transcription');
+
+        // If episode already has segments from cloud, just log them
         const episode = get().episodes[episodeId];
-        if (!episode || !episode.transcript) {
-            console.error('Cannot detect ads: no transcript available');
-            return;
-        }
-
-        try {
-            const { detectAdvancedSegments } = await import('../services/skippableSegments');
-            console.log('Starting advanced skippable segment detection for episode:', episodeId);
-
-            const skippableSegments = await detectAdvancedSegments(episode);
-            console.log('Skippable segment detection completed:', skippableSegments);
-
-            const updatedEpisode = {
-                ...episode,
-                adSegments: skippableSegments,
-                adDetectionType: 'advanced' as const
-            };
-
-            set((state) => ({
-                episodes: {
-                    ...state.episodes,
-                    [episodeId]: updatedEpisode
-                }
-            }));
-
-            await db.saveEpisode(updatedEpisode);
-
-        } catch (error) {
-            console.error('Failed to detect ads:', error);
+        if (episode?.adSegments) {
+            console.log(`[detectAds] Episode already has ${episode.adSegments.length} segments from cloud (${episode.adDetectionType})`);
         }
     },
 

@@ -2,9 +2,13 @@ import { useState, useEffect } from 'react';
 import { db } from '../services/db';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { setDebugEnabled } from '../utils/logger';
-import { LLM_MODELS, DEFAULT_LLM_MODEL } from '../services/skippableSegments';
+// COMMENTED OUT: LLM models now handled by cloud backend
+// import { LLM_MODELS, DEFAULT_LLM_MODEL } from '../services/skippableSegments';
 import { SettingsToast } from '../components/SettingsToast';
-import type { UserPreferences, CompressionQuality, LLMModelId, ReasoningEffort } from '../types';
+import { getSession, signOut } from '../services/supabaseClient';
+// COMMENTED OUT: LLM types no longer needed - cloud backend handles this
+// import type { UserPreferences, CompressionQuality, LLMModelId, ReasoningEffort } from '../types';
+import type { UserPreferences, CompressionQuality } from '../types';
 
 export default function Settings() {
     const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -12,6 +16,7 @@ export default function Settings() {
     const [saved, setSaved] = useState(false);
     const [appVersion, setAppVersion] = useState<string>('');
     const [updateStatus, setUpdateStatus] = useState<any>(null);
+    const [user, setUser] = useState<{ email?: string } | null>(null);
 
 
     useEffect(() => {
@@ -22,6 +27,13 @@ export default function Settings() {
             window.electronAPI.getVersion().then(setAppVersion);
         }
 
+        // Load user session
+        getSession().then(session => {
+            console.log('[Settings] Loaded session:', session?.user?.email || 'none');
+            setUser(session?.user || null);
+        });
+
+        // Set up update status listener
         if (window.electronAPI?.onUpdateStatus) {
             const cleanup = window.electronAPI.onUpdateStatus((status) => {
                 console.log('Update status:', status);
@@ -67,7 +79,10 @@ export default function Settings() {
 
 
     const handleClearData = async () => {
-        if (confirm('⚠️ This will delete ALL subscriptions, downloads, queue, playback progress, and settings.\n\nThis action cannot be undone. The app will restart after clearing.\n\nContinue?')) {
+        if (confirm('⚠️ This will delete ALL subscriptions, downloads, queue, playback progress, settings, AND sign you out.\n\nThis action cannot be undone. The app will restart after clearing.\n\nContinue?')) {
+            // Sign out of Supabase auth first
+            await signOut();
+
             await db.clearAll();
             if (window.electronAPI?.clearAllData) {
                 await window.electronAPI.clearAllData();
@@ -171,6 +186,35 @@ export default function Settings() {
                     </div>
                 </section>
 
+                {/* Account Section */}
+                <section className="settings-section">
+                    <h2>Account</h2>
+                    {user ? (
+                        <div className="setting-item">
+                            <p>Signed in as: <strong>{user.email}</strong></p>
+                            <button
+                                onClick={async () => {
+                                    await signOut();
+                                    window.location.reload();
+                                }}
+                                style={{
+                                    marginTop: '8px',
+                                    padding: '8px 16px',
+                                    backgroundColor: '#444',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Sign Out
+                            </button>
+                        </div>
+                    ) : (
+                        <p>Not signed in</p>
+                    )}
+                </section>
+
                 {/* Playback Settings */}
                 <section className="settings-section">
                     <h2>Playback Preferences</h2>
@@ -250,6 +294,7 @@ export default function Settings() {
                     </div>
                 </section>
 
+                {/* COMMENTED OUT: Transcription section - now handled by cloud backend
                 <section className="settings-section">
                     <h2>Transcription</h2>
 
@@ -286,8 +331,9 @@ export default function Settings() {
                     )}
 
                 </section>
+                END COMMENTED OUT */}
 
-                {/* Analysis Settings */}
+                {/* COMMENTED OUT: Analysis section - now handled by cloud backend
                 <section className="settings-section">
                     <h2>Analysis</h2>
 
@@ -366,6 +412,7 @@ export default function Settings() {
                         </p>
                     </div>
                 </section>
+                END COMMENTED OUT */}
 
                 {/* App Updates */}
                 <section className="settings-section">
@@ -568,6 +615,7 @@ export default function Settings() {
                         </p>
                     </div>
 
+                    {/* COMMENTED OUT: OpenRouter API Key - now handled by cloud backend
                     <div className="setting-item">
                         <label>OpenRouter API Key</label>
                         <input
@@ -582,6 +630,7 @@ export default function Settings() {
                             For advanced AI-powered skippable segment detection via OpenRouter.
                         </p>
                     </div>
+                    END COMMENTED OUT */}
 
 
 

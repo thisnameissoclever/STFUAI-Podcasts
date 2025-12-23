@@ -12,8 +12,55 @@ import { pathToFileURL } from 'url';
 
 // Register custom protocol as privileged BEFORE app.ready()
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'local-media', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, bypassCSP: true } }
+  { scheme: 'local-media', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, bypassCSP: true } },
+  { scheme: 'stfuai', privileges: { standard: true, secure: true } }
 ]);
+
+// Set as default protocol client for OAuth callback (deep linking)
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('stfuai', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('stfuai');
+}
+
+// Store pending OAuth URL if app launched with one (Windows)
+let pendingOAuthUrl: string | null = null;
+
+// Check if app was launched with a protocol URL (Windows)
+const protocolArg = process.argv.find(arg => arg.startsWith('stfuai://'));
+if (protocolArg) {
+  pendingOAuthUrl = protocolArg;
+  console.log('[OAuth] App launched with protocol URL:', protocolArg);
+}
+
+// Single instance lock - prevent multiple instances and handle deep links on Windows
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // Another instance is already running, quit this one
+  console.log('[Main] Another instance is running. Quitting...');
+  app.quit();
+} else {
+  // Handle second instance launch (Windows deep link)
+  app.on('second-instance', (event, argv, workingDirectory) => {
+    console.log('[OAuth] Second instance launched with argv:', argv);
+
+    // Find the protocol URL in argv
+    const url = argv.find(arg => arg.startsWith('stfuai://'));
+    if (url) {
+      console.log('[OAuth] Received deep link from second instance:', url);
+      handleOAuthCallback(url);
+    }
+
+    // Focus the main window
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
 
 let mainWindow: BrowserWindow | null = null;
 const PODCAST_DIR = path.join(app.getPath('userData'), 'podcasts');
@@ -57,7 +104,7 @@ const createWindow = () => {
           "style-src 'self' 'unsafe-inline'; " +
           "img-src 'self' data: http: https: local-media:; " +
           "media-src 'self' http: https: blob: local-media:; " +
-          "connect-src 'self' https://api.podcastindex.org https://openrouter.ai https://speech.googleapis.com https://api.assemblyai.com https://*.assemblyai.com; " +
+          "connect-src 'self' https://api.podcastindex.org https://openrouter.ai https://speech.googleapis.com https://api.assemblyai.com https://*.assemblyai.com https://*.supabase.co; " +
           "font-src 'self' data:;"
         ]
       }
@@ -77,6 +124,12 @@ const createWindow = () => {
 
 // IPC Handlers
 ipcMain.handle('ping', () => 'pong');
+
+// Open URL in system's default browser (for OAuth)
+ipcMain.handle('open-external', async (_, url: string) => {
+  console.log('[Main] Opening external URL:', url);
+  await shell.openExternal(url);
+});
 
 const downloadControllers = new Map<string, AbortController>();
 
@@ -509,6 +562,18 @@ app.whenReady().then(() => {
 
   createWindow();
 
+  // Process pending OAuth URL if app was launched with one (Windows)
+  if (pendingOAuthUrl) {
+    // Wait a bit for window to be ready before processing
+    setTimeout(() => {
+      if (pendingOAuthUrl) {
+        console.log('[OAuth] Processing pending OAuth URL:', pendingOAuthUrl);
+        handleOAuthCallback(pendingOAuthUrl);
+        pendingOAuthUrl = null;
+      }
+    }, 1000);
+  }
+
   // Initial update check (delayed to not impact startup)
   setTimeout(() => {
     console.log('[AutoUpdater] Triggering initial background check...');
@@ -529,7 +594,55 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+
+  // Handle OAuth callback deep link (stfuai://auth/callback)
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    console.log('[OAuth] Received deep link:', url);
+    handleOAuthCallback(url);
+  });
 });
+
+// Handle OAuth callback URL and pass tokens to renderer
+function handleOAuthCallback(url: string) {
+  console.log('[OAuth] handleOAuthCallback called with URL:', url);
+  try {
+    const urlObj = new URL(url);
+    console.log('[OAuth] Parsed URL - hash:', urlObj.hash, 'search:', urlObj.search);
+
+    // Try to extract tokens from hash fragment first (most common)
+    let accessToken: string | null = null;
+    let refreshToken: string | null = null;
+
+    if (urlObj.hash && urlObj.hash.length > 1) {
+      const hashParams = new URLSearchParams(urlObj.hash.substring(1));
+      accessToken = hashParams.get('access_token');
+      refreshToken = hashParams.get('refresh_token');
+      console.log('[OAuth] From hash - accessToken:', accessToken ? 'found' : 'null', 'refreshToken:', refreshToken ? 'found' : 'null');
+    }
+
+    // Also try query params as fallback
+    if (!accessToken && urlObj.search) {
+      const searchParams = new URLSearchParams(urlObj.search);
+      accessToken = searchParams.get('access_token');
+      refreshToken = searchParams.get('refresh_token');
+      console.log('[OAuth] From query - accessToken:', accessToken ? 'found' : 'null', 'refreshToken:', refreshToken ? 'found' : 'null');
+    }
+
+    if (accessToken && mainWindow) {
+      console.log('[OAuth] Passing tokens to renderer');
+      mainWindow.webContents.send('supabase-auth-callback', {
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+      mainWindow.focus();
+    } else {
+      console.log('[OAuth] No tokens found or mainWindow is null. accessToken:', !!accessToken, 'mainWindow:', !!mainWindow);
+    }
+  } catch (error) {
+    console.error('[OAuth] Failed to handle callback:', error);
+  }
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

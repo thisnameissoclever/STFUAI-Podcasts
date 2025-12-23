@@ -126,11 +126,12 @@ export interface UserPreferences {
     skipBackwardSeconds: number;
     debugLogsEnabled: boolean;
     refreshIntervalMinutes: number;
-    assemblyAiApiKey?: string;
-    openRouterApiKey?: string;
-    selectedLLMModel?: LLMModelId;
-    llmTemperature?: number;
-    llmReasoningEffort?: ReasoningEffort;
+    // COMMENTED OUT: API keys now handled by cloud backend
+    // assemblyAiApiKey?: string;
+    // openRouterApiKey?: string;
+    // selectedLLMModel?: LLMModelId;
+    // llmTemperature?: number;
+    // llmReasoningEffort?: ReasoningEffort;
     includePrereleases: boolean;
     autoDetectSkippables?: boolean;
 }

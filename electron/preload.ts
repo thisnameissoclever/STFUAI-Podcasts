@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearAllData: () => ipcRenderer.invoke('clear-all-data'),
     openStorageFolder: () => ipcRenderer.invoke('open-storage-folder'),
     getStorageInfo: () => ipcRenderer.invoke('get-storage-info'),
+    openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
     checkForUpdates: (options?: { allowPrerelease?: boolean; silent?: boolean }) => ipcRenderer.invoke('check-for-updates', options),
     downloadUpdate: () => ipcRenderer.invoke('download-update'),
     quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
@@ -28,5 +29,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     secureStorageSet: (key: string, value: string) => ipcRenderer.invoke('secure-storage-set', key, value),
     secureStorageGet: (key: string) => ipcRenderer.invoke('secure-storage-get', key),
     secureStorageDelete: (key: string) => ipcRenderer.invoke('secure-storage-delete', key),
+    // OAuth callback handler
+    onAuthCallback: (callback: (tokens: { access_token: string; refresh_token: string }) => void) => {
+        const subscription = (_: any, value: any) => callback(value);
+        ipcRenderer.on('supabase-auth-callback', subscription);
+        return () => ipcRenderer.removeListener('supabase-auth-callback', subscription);
+    },
 });
 

@@ -33,3 +33,4 @@ release
 
 # Agent configuration
 .agent/
+backend_integration_guide.md

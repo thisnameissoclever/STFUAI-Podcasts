@@ -16,6 +16,7 @@ export interface ElectronAPI {
         fileCount: number;
         storagePath: string;
     }>;
+    openExternal: (url: string) => Promise<void>;
     checkForUpdates: (options?: { allowPrerelease?: boolean; silent?: boolean }) => Promise<any>;
     downloadUpdate: () => Promise<void>;
     quitAndInstall: () => Promise<void>;
@@ -25,6 +26,7 @@ export interface ElectronAPI {
     secureStorageSet: (key: string, value: string) => Promise<boolean>;
     secureStorageGet: (key: string) => Promise<string | null>;
     secureStorageDelete: (key: string) => Promise<boolean>;
+    onAuthCallback: (callback: (tokens: { access_token: string; refresh_token: string }) => void) => () => void;
 }
 
 declare global {

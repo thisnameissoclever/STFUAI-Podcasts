@@ -13,8 +13,10 @@ import { usePodcastStore } from './store/usePodcastStore';
 import { useRef, useEffect } from 'react';
 import { db } from './services/db';
 import { feedService } from './services/feedService';
+import { performInitialSync } from './services/cloudSync';
 
 import { UpdateToast } from './components/UpdateToast';
+import { AuthGuard } from './components/AuthGuard';
 
 function App() {
   const loadPlayerState = usePlayerStore(state => state.loadState);
@@ -26,6 +28,12 @@ function App() {
       await loadPlayerState();
       await usePodcastStore.getState().loadSubscriptions();
       await usePodcastStore.getState().loadEpisodes();
+
+      // Perform initial cloud sync (merges cloud subscriptions with local)
+      // This runs fire-and-forget so it doesn't block app startup
+      performInitialSync().catch(err =>
+        console.error('[App] Initial cloud sync error:', err)
+      );
 
       // Apply theme preference on startup
       const prefs = await db.getPreferences();
@@ -93,21 +101,23 @@ function App() {
   }, [loadPlayerState]);
 
   return (
-    <HashRouter>
-      <AudioController />
-      <UpdateToast />
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Discover />} />
-          <Route path="search" element={<Search />} />
-          <Route path="podcast/:id" element={<PodcastDetail />} />
-          <Route path="subscriptions" element={<Library />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="help" element={<Help />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </HashRouter>
+    <AuthGuard>
+      <HashRouter>
+        <AudioController />
+        <UpdateToast />
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Discover />} />
+            <Route path="search" element={<Search />} />
+            <Route path="podcast/:id" element={<PodcastDetail />} />
+            <Route path="subscriptions" element={<Library />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="help" element={<Help />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </HashRouter>
+    </AuthGuard>
   );
 }
 

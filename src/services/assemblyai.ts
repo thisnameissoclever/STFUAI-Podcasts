@@ -1,16 +1,34 @@
+// =============================================================================
+// ENTIRE FILE COMMENTED OUT - MARKED FOR FUTURE DELETION
+// Transcription is now handled by cloud backend via src/services/cloudApi.ts
+// =============================================================================
+
+import type { Transcript, CompressionQuality } from '../types';
+
+// Stub function to maintain exports if anything still imports this file
+export async function transcribeEpisode(
+    _filename: string,
+    _episodeId: number,
+    _apiKeyOverride?: string,
+    _compressionQuality: CompressionQuality = 16
+): Promise<Transcript> {
+    throw new Error('AssemblyAI transcription is deprecated. Use cloud backend instead (src/services/cloudApi.ts).');
+}
+
+/*
+// ORIGINAL IMPLEMENTATION - COMMENTED OUT
+
 import axios from 'axios';
 import type { Transcript, TranscriptSegment, TranscriptWord, CompressionQuality } from '../types';
 import { getSecureValue, SECURE_KEYS } from './secureStorage';
 
 const BASE_URL = 'https://api.assemblyai.com/v2';
 
-/**
- * Transcribe an episode using AssemblyAI API
- * @param filename The downloaded filename (e.g., "12345.mp3")
- * @param episodeId The episode ID
- * @param apiKeyOverride Optional API key to use instead of secure storage
- * @param compressionQuality Bitrate for compression (0 = no compression, use original)
- */
+// Transcribe an episode using AssemblyAI API
+// @param filename The downloaded filename (e.g., "12345.mp3")
+// @param episodeId The episode ID
+// @param apiKeyOverride Optional API key to use instead of secure storage
+// @param compressionQuality Bitrate for compression (0 = no compression, use original)
 export async function transcribeEpisode(
     filename: string,
     episodeId: number,
@@ -109,7 +127,6 @@ export async function transcribeEpisode(
         console.log('[AssemblyAI] Transcription complete');
 
         // Step 5: Parse response
-        // Step 5: Parse response
         const words: TranscriptWord[] = [];
         const segments: TranscriptSegment[] = [];
         let fullText = result.text || '';
@@ -203,3 +220,4 @@ export async function transcribeEpisode(
         throw error;
     }
 }
+*/

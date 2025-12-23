@@ -2,6 +2,38 @@ import { create } from 'zustand';
 import type { Episode } from '../types';
 
 import { db } from '../services/db';
+import {
+    upsertQueue,
+    debouncedPlayerStateUpdate,
+    flushPlayerStateUpdate,
+    isCloudSyncAvailable,
+    pushPlaybackPosition,
+} from '../services/cloudSync';
+import { getDeviceId } from '../services/deviceId';
+import type { QueueItem } from '../types/cloudSync';
+
+// Helper to sync queue to cloud - called after any queue modification
+// This is defined outside the store so it can access store state via getState()
+function syncQueueToCloud(): void {
+    // Import store lazily to avoid circular dependency issues
+    import('./usePlayerStore').then(({ usePlayerStore }) => {
+        const { queue } = usePlayerStore.getState();
+
+        isCloudSyncAvailable().then(available => {
+            if (available) {
+                // Convert Episode[] to QueueItem[] for cloud storage
+                const queueItems: QueueItem[] = queue.map(ep => ({
+                    feedUrl: ep.feedUrl || '',
+                    episodeGuid: ep.guid || String(ep.id),
+                }));
+
+                upsertQueue(queueItems).catch(err =>
+                    console.error('[PlayerStore] Cloud queue sync failed:', err)
+                );
+            }
+        });
+    });
+}
 
 interface PlayerState {
     currentEpisode: Episode | null;
@@ -241,6 +273,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         if (!state.isDownloaded(episode.id) && !state.isDownloading(episode.id)) {
             state.downloadEpisode(episode);
         }
+
+        // Sync queue with cloud (fire-and-forget)
+        syncQueueToCloud();
     },
 
     removeFromQueue: async (episodeId: number) => {
@@ -256,6 +291,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             console.log(`[PlayerStore] Removing episode ${episodeId} from queue. Deleting file.`);
             await usePodcastStore.getState().deleteEpisodeFile(episodeId);
         }
+
+        // Sync queue with cloud
+        syncQueueToCloud();
     },
 
     playNextInQueue: async () => {
@@ -286,6 +324,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             newQueue.splice(toIndex, 0, movedItem);
             return { queue: newQueue };
         });
+
+        // Sync queue with cloud
+        syncQueueToCloud();
     },
 
     seek: (time: number) => set({ currentTime: time, lastSeekTime: Date.now() }),
@@ -431,6 +472,26 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             playbackRate,
             currentTime
         });
+
+        // Sync episode progress to cloud (debounced during playback)
+        if (currentEpisode) {
+            try {
+                const available = await isCloudSyncAvailable();
+                if (available) {
+                    // Use debounced update during normal playback
+                    const deviceId = await getDeviceId();
+                    debouncedPlayerStateUpdate({
+                        feed_url: currentEpisode.feedUrl || '',
+                        episode_guid: currentEpisode.guid || String(currentEpisode.id),
+                        playback_state: get().isPlaying ? 'playing' : 'paused',
+                        position_seconds: currentTime,
+                        device_id: deviceId,
+                    });
+                }
+            } catch (error) {
+                console.error('[PlayerStore] Cloud sync failed:', error);
+            }
+        }
     },
 
     setDefaultPlaybackRate: (rate: number) => set({ defaultPlaybackRate: rate }),
