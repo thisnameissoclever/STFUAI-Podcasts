@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, Sparkles, Settings as SettingsIcon, Zap } from 'lucide-react';
+import { ExternalLink, Sparkles, Zap } from 'lucide-react';
 
 export const Help: React.FC = () => {
     const scrollToSection = (id: string) => {
@@ -35,7 +35,7 @@ export const Help: React.FC = () => {
                         </li>
                         <li>
                             <button onClick={() => scrollToSection('configuration')} className="text-accent hover:underline" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                                Configuration (API Keys & Models)
+                                Configuration
                             </button>
                         </li>
                         <li>
@@ -109,48 +109,19 @@ export const Help: React.FC = () => {
 
                 {/* Configuration */}
                 <section id="configuration" style={{ marginBottom: '3rem' }}>
-                    <h2>Configuration & API Keys</h2>
+                    <h2>Configuration</h2>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                        While the app works out of the box, power users can configure their own API keys in <SettingsIcon size={14} style={{ display: 'inline', marginBottom: '-2px' }} /> <strong>Settings</strong> to avoid shared rate limits or to use specific AI models.
+                        Good news - you don't need to configure anything! All transcription and ad detection is handled automatically by our cloud backend.
                     </p>
 
-                    <div style={{ marginBottom: '2rem' }}>
-                        <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>1. Transcription (AssemblyAI)</h3>
-                        <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                            We use AssemblyAI for high-quality speech-to-text. This is the foundation of all ad detection.
-                        </p>
-                        <p style={{ fontSize: '0.9rem', color: '#aaa', fontStyle: 'italic' }}>
-                            Optional: Add your own key from <a href="https://www.assemblyai.com" target="_blank" rel="noreferrer" className="text-accent hover:underline">assemblyai.com</a> if you hit rate limits.
+                    <div style={{ backgroundColor: 'rgba(30, 215, 96, 0.1)', padding: '1rem', borderRadius: '0.5rem', borderLeft: '4px solid var(--accent-color)', marginTop: '1rem' }}>
+                        <p style={{ margin: 0, fontSize: '0.9rem' }}>
+                            <strong>Cloud processing:</strong> When you add an episode to your queue, we automatically transcribe it and detect skippable segments in the cloud. No API keys required.
                         </p>
                     </div>
 
-                    <div style={{ marginBottom: '2rem' }}>
-                        <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>2. Advanced AI (OpenRouter)</h3>
-                        <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                            We use OpenRouter to access top-tier LLMs for the "Analyze" feature.
-                        </p>
-                        <ul style={{ paddingLeft: '1.5rem', color: 'var(--text-secondary)' }}>
-                            <li>
-                                <strong>Automatic Analysis:</strong> You can toggle "Automatic advanced skippable segment detection" on or off. It is enabled by default.
-                                <br />
-                                <em style={{ fontSize: '0.9em', color: '#888' }}>If disabled, basic detection (via speaker labels) will still run automatically, and you can manually trigger advanced analysis anytime.</em>
-                            </li>
-                            <li>
-                                <strong>API Key:</strong> Optional. Get one at <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" className="text-accent hover:underline">openrouter.ai</a>.
-                            </li>
-                            <li>
-                                <strong>Ad Detection Model:</strong> You can choose which AI model analyzes your podcasts.
-                                <ul style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#aaa' }}>
-                                    <li><strong>Gemini 2.0 Flash:</strong> Fast, cheap, and very capable. (Recommended)</li>
-                                    <li><strong>GPT-5 Mini:</strong> High intelligence, slightly more expensive.</li>
-                                    <li><strong>Claude Haiku 4.5:</strong> Good balance of speed and nuance.</li>
-                                </ul>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div style={{ marginBottom: '2rem' }}>
-                        <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>3. Audio Compression</h3>
+                    <div style={{ marginTop: '2rem' }}>
+                        <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Audio Compression (Optional)</h3>
                         <p style={{ color: 'var(--text-secondary)' }}>
                             Found in Developer Settings. You can choose to compress audio files before uploading them for transcription to save bandwidth, or select <strong>"Original (No Compression)"</strong> for the highest possible transcription accuracy.
                         </p>
@@ -164,7 +135,7 @@ export const Help: React.FC = () => {
                     <div className="faq-item" style={{ marginBottom: '1.5rem' }}>
                         <h4 style={{ marginBottom: '0.5rem' }}>Why isn't the "Analyze" button working?</h4>
                         <p style={{ color: 'var(--text-secondary)' }}>
-                            Ensure the episode has finished downloading and transcribing first. If it still fails, check the <strong>Model</strong> selection in Settings or try adding your own OpenRouter API key.
+                            Ensure you are signed in and the episode has finished downloading and transcribing first. If issues persist, try signing out and back in.
                         </p>
                     </div>
 

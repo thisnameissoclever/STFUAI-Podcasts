@@ -64,6 +64,7 @@ export interface Episode {
     image: string;
     feedImage: string;
     feedId: number;
+    feedUrl?: string; // Feed URL for cloud sync matching
     feedTitle: string;
     feedLanguage: string;
 

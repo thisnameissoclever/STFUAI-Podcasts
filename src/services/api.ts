@@ -60,5 +60,25 @@ export const api = {
         const sinceEpoch = Math.floor(Date.now() / 1000) - (daysAgo * 24 * 60 * 60);
         const response = await client.get(`/podcasts/trending?max=${maxTrendingPodcasts}&lang=en&since=${sinceEpoch}`);
         return response.data;
+    },
+
+    getPodcastByFeedUrl: async (feedUrl: string) => {
+        const response = await client.get(`/podcasts/byfeedurl?url=${encodeURIComponent(feedUrl)}`);
+        return response.data;
+    },
+
+    getEpisodeByGuid: async (guid: string, feedUrl?: string) => {
+        // Podcast Index API: /episodes/byguid
+        let url = `/episodes/byguid?guid=${encodeURIComponent(guid)}`;
+        if (feedUrl) {
+            url += `&feedurl=${encodeURIComponent(feedUrl)}`;
+        }
+        const response = await client.get(url);
+        return response.data;
+    },
+
+    getEpisodesByFeedUrl: async (feedUrl: string, max = 20) => {
+        const response = await client.get(`/episodes/byfeedurl?url=${encodeURIComponent(feedUrl)}&max=${max}`);
+        return response.data;
     }
 };

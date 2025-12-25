@@ -13,6 +13,7 @@
 import { getSession } from './supabaseClient';
 import { getDeviceId } from './deviceId';
 import { CLOUD_CONFIG } from '../config/cloud';
+import type { Podcast, Episode } from '../types';
 import type {
     CloudSubscription,
     SubscriptionPayload,
@@ -320,10 +321,13 @@ export async function isCloudSyncAvailable(): Promise<boolean> {
  * Performs initial sync on app load.
  * - Fetches cloud subscriptions and adds any missing ones to local store
  * - Pushes any local-only subscriptions to cloud
+ * - Restores queue, player state, and episode states from cloud
  * 
  * This uses a simple merge strategy:
  * - Cloud subscriptions not in local → add to local
  * - Local subscriptions not in cloud → push to cloud
+ * - Cloud queue/player state → restore if local is empty (cloud wins on fresh install)
+ * - Cloud episode states → merge with local (cloud wins for played status)
  */
 export async function performInitialSync(): Promise<void> {
     const available = await isCloudSyncAvailable();
@@ -335,12 +339,17 @@ export async function performInitialSync(): Promise<void> {
     console.log('[CloudSync] Starting initial sync...');
 
     try {
-        // Sync subscriptions
+        // Sync subscriptions first (needed for episode lookups)
         await syncSubscriptions();
 
-        // Note: We don't sync queue/episode state on initial load to avoid 
-        // overwriting local state that may be more recent. The ongoing sync
-        // (via store hooks) handles keeping things in sync during normal use.
+        // Restore queue from cloud
+        await syncQueue();
+
+        // Restore player state from cloud
+        await syncPlayerState();
+
+        // Restore episode states (played/position) from cloud
+        await syncEpisodeStates();
 
         console.log('[CloudSync] Initial sync complete');
     } catch (error) {
@@ -356,7 +365,7 @@ async function syncSubscriptions(): Promise<void> {
     // Dynamic import to avoid circular dependency
     const { usePodcastStore } = await import('../store/usePodcastStore');
     const { db } = await import('./db');
-    const { parseFeed } = await import('./api');
+    const { api } = await import('./api');
 
     const localSubs = usePodcastStore.getState().subscriptions;
     const cloudSubs = await fetchSubscriptions();
@@ -374,20 +383,40 @@ async function syncSubscriptions(): Promise<void> {
         if (!localByFeedUrl.has(cloudSub.feed_url)) {
             console.log(`[CloudSync] Adding cloud subscription locally: ${cloudSub.title}`);
             try {
-                // We need to fetch the full podcast data from the feed
-                const podcast = await parseFeed(cloudSub.feed_url);
-                if (podcast) {
-                    await db.savePodcast({
-                        ...podcast,
+                // Fetch the full podcast data from Podcast Index API
+                const response = await api.getPodcastByFeedUrl(cloudSub.feed_url);
+                if (response?.feed) {
+                    const feed = response.feed;
+                    // Map API response to Podcast interface - must include all required fields
+                    const podcast: Podcast = {
+                        id: feed.id,
+                        title: feed.title,
+                        url: feed.url,
+                        originalUrl: feed.originalUrl || feed.url,
+                        link: feed.link || '',
+                        description: feed.description || '',
+                        author: feed.author || '',
+                        ownerName: feed.ownerName || feed.author || '',
+                        image: feed.image || feed.artwork || '',
+                        artwork: feed.artwork || feed.image || '',
+                        lastUpdateTime: feed.lastUpdateTime || Date.now(),
+                        contentType: feed.contentType || 'application/rss+xml',
+                        itunesId: feed.itunesId || null,
+                        generator: feed.generator || '',
+                        language: feed.language || 'en',
+                        episodeCount: feed.episodeCount || 0,
                         autoAddToQueue: true,
                         subscribedAt: Date.now(),
-                    });
+                    };
+
+                    await db.savePodcast(podcast);
                     usePodcastStore.setState((state) => ({
                         subscriptions: {
                             ...state.subscriptions,
-                            [podcast.id]: { ...podcast, autoAddToQueue: true, subscribedAt: Date.now() }
+                            [podcast.id]: podcast
                         }
                     }));
+                    console.log(`[CloudSync] Successfully added: ${podcast.title}`);
                 }
             } catch (err) {
                 console.error(`[CloudSync] Failed to add subscription ${cloudSub.feed_url}:`, err);
@@ -411,3 +440,284 @@ async function syncSubscriptions(): Promise<void> {
         }
     }
 }
+
+/**
+ * Fetches an episode from the Podcast Index API and saves it to local DB.
+ * Used when restoring queue/player state from cloud on a new device.
+ */
+async function fetchAndSaveEpisode(feedUrl: string, episodeGuid: string): Promise<Episode | null> {
+    const { api } = await import('./api');
+    const { db } = await import('./db');
+    const { usePodcastStore } = await import('../store/usePodcastStore');
+
+    try {
+        // Try to fetch episode by GUID first (most accurate)
+        const response = await api.getEpisodeByGuid(episodeGuid, feedUrl);
+
+        if (response?.episode) {
+            const item = response.episode;
+            const episode: Episode = {
+                id: item.id,
+                title: item.title,
+                link: item.link,
+                description: item.description,
+                guid: item.guid,
+                datePublished: item.datePublished,
+                datePublishedPretty: item.datePublishedPretty,
+                dateCrawled: item.dateCrawled,
+                enclosureUrl: item.enclosureUrl,
+                enclosureType: item.enclosureType,
+                enclosureLength: item.enclosureLength,
+                duration: item.duration,
+                explicit: item.explicit,
+                episode: item.episode,
+                season: item.season,
+                image: item.image,
+                feedImage: item.feedImage,
+                feedId: item.feedId,
+                feedTitle: item.feedTitle,
+                feedLanguage: item.feedLanguage,
+                feedUrl: feedUrl,
+                isPlayed: false,
+                playbackPosition: 0,
+                isDownloaded: false,
+                inQueue: false
+            };
+
+            // Save to local DB
+            await db.saveEpisode(episode);
+            usePodcastStore.setState((state) => ({
+                episodes: { ...state.episodes, [episode.id]: episode }
+            }));
+
+            console.log(`[CloudSync] Fetched and saved episode: ${episode.title}`);
+            return episode;
+        }
+    } catch (err) {
+        console.warn(`[CloudSync] Could not fetch episode by GUID ${episodeGuid}:`, err);
+    }
+
+    // Fallback: Try to find in recent episodes by feed URL
+    try {
+        const episodesResponse = await api.getEpisodesByFeedUrl(feedUrl, 50);
+        if (episodesResponse?.items) {
+            const item = episodesResponse.items.find(
+                (ep: { guid?: string; id?: number }) => ep.guid === episodeGuid || String(ep.id) === episodeGuid
+            );
+
+            if (item) {
+                const episode: Episode = {
+                    id: item.id,
+                    title: item.title,
+                    link: item.link,
+                    description: item.description,
+                    guid: item.guid,
+                    datePublished: item.datePublished,
+                    datePublishedPretty: item.datePublishedPretty,
+                    dateCrawled: item.dateCrawled,
+                    enclosureUrl: item.enclosureUrl,
+                    enclosureType: item.enclosureType,
+                    enclosureLength: item.enclosureLength,
+                    duration: item.duration,
+                    explicit: item.explicit,
+                    episode: item.episode,
+                    season: item.season,
+                    image: item.image,
+                    feedImage: item.feedImage,
+                    feedId: item.feedId,
+                    feedTitle: item.feedTitle,
+                    feedLanguage: item.feedLanguage,
+                    feedUrl: feedUrl,
+                    isPlayed: false,
+                    playbackPosition: 0,
+                    isDownloaded: false,
+                    inQueue: false
+                };
+
+                await db.saveEpisode(episode);
+                usePodcastStore.setState((state) => ({
+                    episodes: { ...state.episodes, [episode.id]: episode }
+                }));
+
+                console.log(`[CloudSync] Fetched and saved episode from feed: ${episode.title}`);
+                return episode;
+            }
+        }
+    } catch (err) {
+        console.warn(`[CloudSync] Could not fetch episodes from feed ${feedUrl}:`, err);
+    }
+
+    return null;
+}
+
+/**
+ * Syncs queue from cloud to local.
+ * Only restores if local queue is empty (to avoid overwriting user's current session).
+ */
+async function syncQueue(): Promise<void> {
+    const { usePlayerStore } = await import('../store/usePlayerStore');
+    const { db } = await import('./db');
+
+    const localQueue = usePlayerStore.getState().queue;
+
+    // Only restore if local queue is empty
+    if (localQueue.length > 0) {
+        console.log('[CloudSync] Local queue has items, skipping cloud queue restore');
+        return;
+    }
+
+    const cloudQueue = await fetchQueue();
+    if (!cloudQueue || cloudQueue.items.length === 0) {
+        console.log('[CloudSync] No cloud queue to restore');
+        return;
+    }
+
+    console.log(`[CloudSync] Restoring queue with ${cloudQueue.items.length} items from cloud`);
+
+    // Get all local episodes to match queue items
+    const allEpisodes = await db.getEpisodes();
+    const episodeList = Object.values(allEpisodes);
+
+    // Convert cloud queue items to Episode objects
+    const restoredQueue: Episode[] = [];
+    for (const item of cloudQueue.items) {
+        // First, try to find episode locally
+        let episode = episodeList.find(ep =>
+            ep.feedUrl === item.feedUrl && (ep.guid === item.episodeGuid || String(ep.id) === item.episodeGuid)
+        );
+
+        // If not found locally, try to fetch from API
+        if (!episode && item.feedUrl) {
+            console.log(`[CloudSync] Episode not found locally, fetching from API: ${item.episodeGuid}`);
+            episode = await fetchAndSaveEpisode(item.feedUrl, item.episodeGuid) || undefined;
+        }
+
+        if (episode) {
+            restoredQueue.push(episode);
+            console.log(`[CloudSync] Restored queue item: ${episode.title}`);
+        } else {
+            console.warn(`[CloudSync] Could not find or fetch episode: ${item.feedUrl} / ${item.episodeGuid}`);
+        }
+    }
+
+    if (restoredQueue.length > 0) {
+        usePlayerStore.setState({ queue: restoredQueue });
+        console.log(`[CloudSync] Queue restored with ${restoredQueue.length} episodes`);
+    }
+}
+
+/**
+ * Syncs player state from cloud to local.
+ * Only restores if no episode is currently loaded (to avoid interrupting playback).
+ */
+async function syncPlayerState(): Promise<void> {
+    const { usePlayerStore } = await import('../store/usePlayerStore');
+    const { db } = await import('./db');
+
+    const localCurrentEpisode = usePlayerStore.getState().currentEpisode;
+
+    // Only restore if nothing is currently playing/loaded
+    if (localCurrentEpisode) {
+        console.log('[CloudSync] Local player has episode, skipping cloud player state restore');
+        return;
+    }
+
+    const cloudPlayerState = await fetchPlayerState();
+    if (!cloudPlayerState) {
+        console.log('[CloudSync] No cloud player state to restore');
+        return;
+    }
+
+    console.log(`[CloudSync] Restoring player state from cloud: ${cloudPlayerState.playback_state}`);
+
+    // Get all local episodes to find the one being played
+    const allEpisodes = await db.getEpisodes();
+    const episodeList = Object.values(allEpisodes);
+
+    // First, try to find episode locally
+    let episode = episodeList.find(ep =>
+        ep.feedUrl === cloudPlayerState.feed_url &&
+        (ep.guid === cloudPlayerState.episode_guid || String(ep.id) === cloudPlayerState.episode_guid)
+    );
+
+    // If not found locally, try to fetch from API
+    if (!episode && cloudPlayerState.feed_url) {
+        console.log(`[CloudSync] Player episode not found locally, fetching from API: ${cloudPlayerState.episode_guid}`);
+        episode = await fetchAndSaveEpisode(cloudPlayerState.feed_url, cloudPlayerState.episode_guid) || undefined;
+    }
+
+    if (episode) {
+        // Update episode with cloud position
+        const restoredEpisode = {
+            ...episode,
+            playbackPosition: cloudPlayerState.position_seconds
+        };
+
+        usePlayerStore.setState({
+            currentEpisode: restoredEpisode,
+            currentTime: cloudPlayerState.position_seconds,
+            // Don't auto-play - just load it. User can resume when ready.
+            isPlaying: false,
+        });
+
+        console.log(`[CloudSync] Player state restored: ${episode.title} at ${cloudPlayerState.position_seconds}s`);
+    } else {
+        console.warn('[CloudSync] Could not find or fetch episode for player state:', cloudPlayerState.feed_url);
+    }
+}
+
+/**
+ * Syncs episode states (played/position) from cloud to local.
+ * Cloud wins for played status and position (to support cross-device sync).
+ */
+async function syncEpisodeStates(): Promise<void> {
+    const { usePodcastStore } = await import('../store/usePodcastStore');
+    const { db } = await import('./db');
+
+    const cloudStates = await fetchEpisodeStates();
+    if (cloudStates.length === 0) {
+        console.log('[CloudSync] No cloud episode states to restore');
+        return;
+    }
+
+    console.log(`[CloudSync] Syncing ${cloudStates.length} episode states from cloud`);
+
+    // Get all local episodes
+    const allEpisodes = await db.getEpisodes();
+    const episodeList = Object.values(allEpisodes);
+    let updatedCount = 0;
+
+    for (const cloudState of cloudStates) {
+        // Find matching local episode
+        const episode = episodeList.find(ep =>
+            ep.feedUrl === cloudState.feed_url &&
+            (ep.guid === cloudState.episode_guid || String(ep.id) === cloudState.episode_guid)
+        );
+
+        if (episode) {
+            // Check if cloud state is "newer" or has more progress
+            const cloudIsPlayed = cloudState.is_played;
+            const cloudPosition = cloudState.position_seconds;
+            const localPosition = episode.playbackPosition || 0;
+
+            // Cloud wins if: episode is marked played, or cloud has more progress
+            if (cloudIsPlayed || cloudPosition > localPosition) {
+                const updatedEpisode = {
+                    ...episode,
+                    isPlayed: cloudIsPlayed,
+                    playbackPosition: cloudPosition,
+                };
+
+                await db.saveEpisode(updatedEpisode);
+                usePodcastStore.setState((state) => ({
+                    episodes: { ...state.episodes, [episode.id]: updatedEpisode }
+                }));
+
+                updatedCount++;
+            }
+        }
+    }
+
+    console.log(`[CloudSync] Updated ${updatedCount} episodes from cloud states`);
+}
+

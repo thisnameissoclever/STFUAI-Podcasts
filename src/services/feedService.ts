@@ -45,6 +45,7 @@ export const feedService = {
                             image: item.image,
                             feedImage: item.feedImage,
                             feedId: item.feedId,
+                            feedUrl: podcast.url, // Store feed URL for cloud sync
                             feedTitle: item.feedTitle,
                             feedLanguage: item.feedLanguage,
                             isPlayed: false,

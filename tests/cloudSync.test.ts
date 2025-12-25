@@ -134,6 +134,7 @@ describe('cloudSync service', () => {
                         feed_url: 'https://example.com/rss',
                         title: 'Test Podcast',
                         image_url: 'https://example.com/image.jpg',
+                        user_id: 'user-123',
                     }),
                 })
             );
@@ -256,7 +257,7 @@ describe('cloudSync service', () => {
     });
 
     describe('upsertQueue', () => {
-        it('upserts queue items with device ID', async () => {
+        it('upserts queue items with device ID and user ID', async () => {
             mockFetch.mockResolvedValue({
                 ok: true,
                 status: 201,
@@ -277,6 +278,7 @@ describe('cloudSync service', () => {
                     body: JSON.stringify({
                         items,
                         device_id: 'test-device-id-12345',
+                        user_id: 'user-123',
                     }),
                 })
             );
@@ -322,7 +324,7 @@ describe('cloudSync service', () => {
     });
 
     describe('upsertPlayerState', () => {
-        it('upserts player state with correct payload', async () => {
+        it('upserts player state with correct payload and user ID', async () => {
             mockFetch.mockResolvedValue({
                 ok: true,
                 status: 201,
@@ -350,6 +352,7 @@ describe('cloudSync service', () => {
                         playback_state: 'paused',
                         position_seconds: 600,
                         device_id: 'test-device-id',
+                        user_id: 'user-123',
                     }),
                 })
             );
